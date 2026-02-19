@@ -1,3 +1,5 @@
+import type { AIProvider, AIProviderConfig } from '@/lib/ai/types';
+
 /**
  * Firebase configuration interface
  */
@@ -13,6 +15,16 @@ export interface FirebaseConfig {
 }
 
 /**
+ * AI provider configuration per environment
+ */
+export interface AIEnvironmentConfig {
+  /** Which AI provider to use in this environment */
+  provider: AIProvider;
+  /** Full provider config (apiKey, models, polling, etc.) */
+  providerConfig: AIProviderConfig;
+}
+
+/**
  * Environment names
  */
 export type Environment = 'UAT' | 'PROD';
@@ -23,4 +35,5 @@ export type Environment = 'UAT' | 'PROD';
 export interface EnvironmentConfig {
   name: Environment;
   config: FirebaseConfig;
+  ai: AIEnvironmentConfig;
 } 

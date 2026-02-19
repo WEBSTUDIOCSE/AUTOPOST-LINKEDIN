@@ -14,9 +14,16 @@ export type { AppUser } from './auth.service';
 export type { PaymentRecord } from './payment.service';
 export type { ApiResponse } from '../handler';
 
+// Re-export AI adapter for convenience
+export { createAIAdapter, getAvailableProviders } from '@/lib/ai';
+export { getAIConfig, getCurrentAIProvider } from '../config/environments';
+export type { IAIAdapter } from '@/lib/ai';
+
 // Re-export for convenience
 import { AuthService } from './auth.service';
 import { PaymentService } from './payment.service';
+import { createAIAdapter } from '@/lib/ai';
+import { getAIConfig } from '../config/environments';
 
 /**
  * Centralized APIBook for Firebase services
@@ -25,10 +32,14 @@ import { PaymentService } from './payment.service';
  * import { APIBook } from '@/lib/firebase/services';
  * const result = await APIBook.auth.loginWithEmail(email, password);
  * const payment = await APIBook.payment.createPayment(paymentData);
+ * const ai = APIBook.createAI();
+ * const text = await ai.generateText({ prompt: 'Hello!' });
  */
 export const APIBook = {
   auth: AuthService,
   payment: PaymentService,
+  /** Create an AI adapter instance using the current environment's config */
+  createAI: () => createAIAdapter(getAIConfig()),
 } as const;
 
 /**
