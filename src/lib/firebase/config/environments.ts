@@ -7,30 +7,32 @@ import type { AIProvider, AIProviderConfig } from '@/lib/ai/types';
 
 /**
  * UAT Environment Configuration
+ * API keys are loaded from .env.local (see .env.example)
  */
 const UAT_CONFIG: FirebaseConfig = {
-    apiKey: "AIzaSyDr2GEwj5O4AMQF6JCAu0nhNhlezsgxHS8",
-    authDomain: "env-uat-cd3c5.firebaseapp.com",
-    projectId: "env-uat-cd3c5",
-    storageBucket: "env-uat-cd3c5.firebasestorage.app",
-    messagingSenderId: "614576728087",
-    appId: "1:614576728087:web:6337d07f43cb3674001452",
-    measurementId: "G-RMHPEET5ZY",
-    vapidKey: "BPdx9XtofjSoMHlUewHoxrV2IcWwz3jsJY7Rl0byzte4EDYOnMfxtJogdOXlCKRAL5tYSsHc-7iuWkxWjnwo1TA"
+    apiKey: process.env.NEXT_PUBLIC_FIREBASE_UAT_API_KEY || "",
+    authDomain: process.env.NEXT_PUBLIC_FIREBASE_UAT_AUTH_DOMAIN || "",
+    projectId: process.env.NEXT_PUBLIC_FIREBASE_UAT_PROJECT_ID || "",
+    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_UAT_STORAGE_BUCKET || "",
+    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_UAT_MESSAGING_SENDER_ID || "",
+    appId: process.env.NEXT_PUBLIC_FIREBASE_UAT_APP_ID || "",
+    measurementId: process.env.NEXT_PUBLIC_FIREBASE_UAT_MEASUREMENT_ID || "",
+    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_UAT_VAPID_KEY || ""
 };
 
 /**
  * PROD Environment Configuration
+ * API keys are loaded from .env.local (see .env.example)
  */
 const PROD_CONFIG: FirebaseConfig = {
- apiKey: "AIzaSyDP7goPvbKrk1utbKISF2tJU-SwyuJdm2E",
-  authDomain: "breathe-free-c1566.firebaseapp.com",
-  projectId: "breathe-free-c1566",
-  storageBucket: "breathe-free-c1566.firebasestorage.app",
-  messagingSenderId: "169689352647",
-  appId: "1:169689352647:web:00fafecc859873d4eb31e2",
-  measurementId: "G-DTQR8G46W0",
-  vapidKey: "BMSqnRUaslFNE6JtlzBem_04MMSmaYVAGF3IkC2xFnqJ5MMcshy3GOTbnF4TIJzURpXJ1uYzatIktOavO2ka2NE"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_PROD_API_KEY || "",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_PROD_AUTH_DOMAIN || "",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROD_PROJECT_ID || "",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_PROD_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_PROD_MESSAGING_SENDER_ID || "",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_PROD_APP_ID || "",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_PROD_MEASUREMENT_ID || "",
+  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_PROD_VAPID_KEY || ""
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -66,7 +68,7 @@ export const AI_PROVIDER: AIProvider = 'gemini';
  */
 const GEMINI_CONFIG: AIProviderConfig = {
   provider: 'gemini',
-  apiKey: 'AIzaSyALqtd_W5D3cls27tkF7tjS82yyPx2dxt4',
+  apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
   models: {
     text: 'gemini-2.5-flash-preview-05-20',
     image: 'gemini-2.5-flash-preview-image',
@@ -101,7 +103,7 @@ const GEMINI_CONFIG: AIProviderConfig = {
  */
 const KIEAI_CONFIG: AIProviderConfig = {
   provider: 'kieai',
-  apiKey: 'efe5026451ae1f05e41487a033f7875a',
+  apiKey: process.env.NEXT_PUBLIC_KIEAI_API_KEY || '',
   models: {
     text: 'gemini-2.5-flash',
     image: 'flux-2/pro-text-to-image',
