@@ -1,13 +1,19 @@
 /**
- * AI Adapter - Kie.AI Implementation
- * 
+ * AI Adapter — Kie.AI Implementation (v2)
+ *
  * Kie.AI is an async-task–based provider:
  *   1. POST /api/v1/jobs/createTask  → returns { taskId }
  *   2. GET  /api/v1/jobs/recordInfo?taskId=xxx  → poll until state === 'success'
- * 
+ *
  * All image/video models follow the same createTask → poll pattern.
  * Chat/text uses an OpenAI-compatible endpoint per model.
- * 
+ *
+ * Features:
+ *   - Full model catalog (22+ image, 24+ video, 5+ chat models)
+ *   - Pricing info attached to every model
+ *   - Sliding-window rate limiter (20 req / 10s default)
+ *   - Model validation against the catalog
+ *
  * Docs: https://docs.kie.ai/
  */
 
@@ -24,13 +30,24 @@ import type {
   TaskState,
 } from '../types';
 import { AIAdapterError, CapabilityNotSupportedError } from '../types';
+import { RateLimiter, DEFAULT_RATE_LIMITS } from '../rate-limiter';
+import type { RateLimiterConfig, RateLimiterStatus } from '../rate-limiter';
+import {
+  KIE_MODEL_MAP,
+  KIE_ALL_MODELS,
+  getKieModelsByCapability,
+  getKieModelIds,
+  isValidKieModel,
+  getKieModelInfo,
+} from '../kieai-models';
+import type { KieModelInfo } from '../kieai-models';
 
 // ─── Default models (can be overridden in config) ────────────────────────────
 
 const DEFAULT_MODELS = {
-  text: 'gemini-2.5-flash',         // kie.ai hosts Gemini as a chat model
-  image: 'flux-2/pro-text-to-image', // Flux-2 for image generation
-  video: 'kling/v2-1-pro',           // Kling for video generation
+  text: 'gemini-2.5-flash',           // Kie.AI hosts Gemini as a chat model
+  image: 'flux-2/pro-text-to-image',  // Flux-2 for image generation
+  video: 'kling/v2-1-pro',            // Kling for video generation
 } as const;
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -49,6 +66,7 @@ export class KieAIAdapter implements IAIAdapter {
   private readonly models: { text: string; image: string; video: string };
   private readonly pollingInterval: number;
   private readonly maxPollingAttempts: number;
+  private readonly rateLimiter: RateLimiter;
 
   constructor(config: AIProviderConfig) {
     this.apiKey = config.apiKey;
@@ -57,8 +75,15 @@ export class KieAIAdapter implements IAIAdapter {
       image: config.models?.image ?? DEFAULT_MODELS.image,
       video: config.models?.video ?? DEFAULT_MODELS.video,
     };
-    this.pollingInterval = config.pollingInterval ?? 5000;
+    this.pollingInterval = config.pollingInterval ?? 5_000;
     this.maxPollingAttempts = config.maxPollingAttempts ?? 60;
+
+    // Initialize rate limiter from config or use provider defaults
+    const rlConfig: RateLimiterConfig = config.rateLimit ?? DEFAULT_RATE_LIMITS.kieai;
+    this.rateLimiter = new RateLimiter(rlConfig);
+
+    // Warn (but don't crash) if configured models aren't in the catalog
+    this.validateConfiguredModels();
   }
 
   // ── Capability discovery ─────────────────────────────────────────────────
@@ -71,12 +96,55 @@ export class KieAIAdapter implements IAIAdapter {
     return this.getSupportedCapabilities().includes(capability);
   }
 
+  // ── Model Discovery (unique to KieAI adapter) ───────────────────────────
+
+  /**
+   * List all available models, optionally filtered by capability.
+   */
+  getAvailableModels(capability?: AICapability): KieModelInfo[] {
+    if (capability) {
+      return getKieModelsByCapability(capability);
+    }
+    return [...KIE_ALL_MODELS];
+  }
+
+  /**
+   * Get model IDs for a capability.
+   */
+  getModelIds(capability: AICapability): string[] {
+    return getKieModelIds(capability);
+  }
+
+  /**
+   * Get detailed info about a specific model.
+   */
+  getModelInfo(modelId: string): KieModelInfo | undefined {
+    return getKieModelInfo(modelId);
+  }
+
+  /**
+   * Check rate limiter status without consuming a slot.
+   */
+  getRateLimitStatus(): RateLimiterStatus {
+    return this.rateLimiter.getStatus();
+  }
+
+  /**
+   * Get the currently configured default models.
+   */
+  getConfiguredModels(): { text: string; image: string; video: string } {
+    return { ...this.models };
+  }
+
   // ── Text Generation ──────────────────────────────────────────────────────
 
   async generateText(request: TextGenerationRequest): Promise<TextGenerationResponse> {
     if (!this.supportsCapability('text')) {
       throw new CapabilityNotSupportedError('kieai', 'text');
     }
+
+    // Rate limit check
+    await this.rateLimiter.acquire('kieai');
 
     const model = this.models.text;
     const url = `${KIE_BASE_URL}/${model}/v1/chat/completions`;
@@ -119,12 +187,19 @@ export class KieAIAdapter implements IAIAdapter {
 
   // ── Image Generation ─────────────────────────────────────────────────────
 
-  async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
+  async generateImage(
+    request: ImageGenerationRequest,
+    modelOverride?: string,
+  ): Promise<ImageGenerationResponse> {
     if (!this.supportsCapability('image')) {
       throw new CapabilityNotSupportedError('kieai', 'image');
     }
 
-    const model = this.models.image;
+    const model = modelOverride ?? this.models.image;
+    this.assertValidModel(model, 'image');
+
+    // Rate limit check
+    await this.rateLimiter.acquire('kieai');
 
     const taskBody = {
       model,
@@ -150,12 +225,19 @@ export class KieAIAdapter implements IAIAdapter {
 
   // ── Video Generation ─────────────────────────────────────────────────────
 
-  async generateVideo(request: VideoGenerationRequest): Promise<VideoGenerationResponse> {
+  async generateVideo(
+    request: VideoGenerationRequest,
+    modelOverride?: string,
+  ): Promise<VideoGenerationResponse> {
     if (!this.supportsCapability('video')) {
       throw new CapabilityNotSupportedError('kieai', 'video');
     }
 
-    const model = this.models.video;
+    const model = modelOverride ?? this.models.video;
+    this.assertValidModel(model, 'video');
+
+    // Rate limit check
+    await this.rateLimiter.acquire('kieai');
 
     const taskBody = {
       model,
@@ -208,6 +290,7 @@ export class KieAIAdapter implements IAIAdapter {
   /**
    * GET /api/v1/jobs/recordInfo?taskId=xxx
    * Polls until state === 'success' or 'fail'.
+   * Polling calls are NOT rate-limited (they're lightweight status checks).
    */
   private async pollUntilDone(taskId: string): Promise<KiePollResult> {
     for (let attempt = 0; attempt < this.maxPollingAttempts; attempt++) {
@@ -245,6 +328,40 @@ export class KieAIAdapter implements IAIAdapter {
     );
   }
 
+  /**
+   * Validate configured models against the catalog on construction.
+   * Logs warnings but does not throw — the model might be newly added.
+   */
+  private validateConfiguredModels(): void {
+    for (const [capability, modelId] of Object.entries(this.models)) {
+      if (!isValidKieModel(modelId)) {
+        console.warn(
+          `[KieAI] Model "${modelId}" for ${capability} is not in the catalog. ` +
+          `It may be a new model not yet cataloged, or a typo. ` +
+          `Available ${capability} models: ${getKieModelIds(capability as AICapability).join(', ')}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Assert that a model ID is valid for its capability before making an API call.
+   * Throws if the model is known but assigned to the wrong capability.
+   */
+  private assertValidModel(modelId: string, expectedCapability: AICapability): void {
+    const info = KIE_MODEL_MAP.get(modelId);
+    if (info && info.capability !== expectedCapability) {
+      throw new AIAdapterError(
+        `Model "${modelId}" is a ${info.capability} model, ` +
+        `but was used for ${expectedCapability} generation. ` +
+        `Use one of: ${getKieModelIds(expectedCapability).slice(0, 5).join(', ')}…`,
+        'kieai',
+        'MODEL_CAPABILITY_MISMATCH',
+      );
+    }
+    // If model is not in the catalog at all, we allow it through (might be new)
+  }
+
   /** Generic fetch wrapper with auth headers */
   private async fetchJSON<T>(url: string, init: RequestInit): Promise<T> {
     const response = await fetch(url, {
@@ -257,6 +374,17 @@ export class KieAIAdapter implements IAIAdapter {
     });
 
     if (!response.ok) {
+      // Handle rate limit responses from the server itself
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('Retry-After');
+        throw new AIAdapterError(
+          `Rate limited by Kie.AI (429). Retry after ${retryAfter ?? 'unknown'} seconds.`,
+          'kieai',
+          'PROVIDER_RATE_LIMITED',
+          429,
+        );
+      }
+
       throw new AIAdapterError(
         `HTTP ${response.status}: ${response.statusText}`,
         'kieai',

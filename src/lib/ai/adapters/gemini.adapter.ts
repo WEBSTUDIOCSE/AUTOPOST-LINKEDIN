@@ -23,6 +23,8 @@ import type {
   VideoGenerationResponse,
 } from '../types';
 import { AIAdapterError, CapabilityNotSupportedError } from '../types';
+import { RateLimiter, DEFAULT_RATE_LIMITS } from '../rate-limiter';
+import type { RateLimiterConfig, RateLimiterStatus } from '../rate-limiter';
 
 // ─── Default models ──────────────────────────────────────────────────────────
 
@@ -42,6 +44,7 @@ export class GeminiAdapter implements IAIAdapter {
   private readonly models: { text: string; image: string; video: string };
   private readonly pollingInterval: number;
   private readonly maxPollingAttempts: number;
+  private readonly rateLimiter: RateLimiter;
 
   constructor(config: AIProviderConfig) {
     this.client = new GoogleGenAI({ apiKey: config.apiKey });
@@ -52,6 +55,17 @@ export class GeminiAdapter implements IAIAdapter {
     };
     this.pollingInterval = config.pollingInterval ?? 10000; // Video gen is slow
     this.maxPollingAttempts = config.maxPollingAttempts ?? 60;
+
+    // Initialize rate limiter from config or use provider defaults
+    const rlConfig: RateLimiterConfig = config.rateLimit ?? DEFAULT_RATE_LIMITS.gemini;
+    this.rateLimiter = new RateLimiter(rlConfig);
+  }
+
+  /**
+   * Check rate limiter status without consuming a slot.
+   */
+  getRateLimitStatus(): RateLimiterStatus {
+    return this.rateLimiter.getStatus();
   }
 
   // ── Capability discovery ─────────────────────────────────────────────────
@@ -72,6 +86,9 @@ export class GeminiAdapter implements IAIAdapter {
     }
 
     try {
+      // Rate limit check
+      await this.rateLimiter.acquire('gemini');
+
       const response = await this.client.models.generateContent({
         model: this.models.text,
         contents: request.prompt,
@@ -115,6 +132,9 @@ export class GeminiAdapter implements IAIAdapter {
     }
 
     try {
+      // Rate limit check
+      await this.rateLimiter.acquire('gemini');
+
       // Gemini Nano Banana: use generateContent with responseModalities: ['Image']
       const response = await this.client.models.generateContent({
         model: this.models.image,
@@ -163,6 +183,9 @@ export class GeminiAdapter implements IAIAdapter {
     }
 
     try {
+      // Rate limit check
+      await this.rateLimiter.acquire('gemini');
+
       // Veo: async long-running operation
       // Build the generate request
       const generateConfig: Record<string, unknown> = {

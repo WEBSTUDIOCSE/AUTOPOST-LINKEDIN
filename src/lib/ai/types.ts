@@ -137,6 +137,17 @@ export interface AIProviderConfig {
   pollingInterval?: number;
   /** Optional: max polling attempts for async providers (default 60) */
   maxPollingAttempts?: number;
+  /** Optional: rate limiter config to protect against API key abuse */
+  rateLimit?: {
+    /** Max requests allowed within the window */
+    maxRequests: number;
+    /** Window duration in milliseconds */
+    windowMs: number;
+    /** Wait for a slot instead of throwing (default: true) */
+    waitForSlot?: boolean;
+    /** Max time to wait for a slot in ms (default: 30000) */
+    maxWaitMs?: number;
+  };
 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────

@@ -61,6 +61,8 @@ export const AI_PROVIDER: AIProvider = 'gemini';
  *   text  → gemini-2.5-flash-preview-05-20  (fast text generation)
  *   image → gemini-2.5-flash-preview-image  (Nano Banana – native image gen)
  *   video → veo-3.0-generate-preview        (Veo 3 – async video generation)
+ * 
+ * Rate Limit: 15 RPM free tier (configured with buffer of 1)
  */
 const GEMINI_CONFIG: AIProviderConfig = {
   provider: 'gemini',
@@ -72,6 +74,12 @@ const GEMINI_CONFIG: AIProviderConfig = {
   },
   pollingInterval: 10000,   // 10s – Veo video gen is slow
   maxPollingAttempts: 60,   // 10min max wait
+  rateLimit: {
+    maxRequests: 14,        // 15 RPM free tier minus 1 buffer
+    windowMs: 60_000,       // 60 seconds
+    waitForSlot: true,
+    maxWaitMs: 60_000,
+  },
 };
 
 /**
@@ -81,10 +89,15 @@ const GEMINI_CONFIG: AIProviderConfig = {
  * All generation tasks are async (createTask → poll recordInfo).
  * Chat/text uses OpenAI-compatible endpoints.
  * 
- * Models:
+ * Default Models (override per-call or per-environment):
  *   text  → gemini-2.5-flash             (Kie proxies Gemini chat)
  *   image → flux-2/pro-text-to-image     (Flux-2 image generation)
  *   video → kling/v2-1-pro               (Kling video generation)
+ * 
+ * Full catalog: 22+ image, 24+ video, 5+ chat models.
+ * See src/lib/ai/kieai-models.ts for all models + pricing.
+ * 
+ * Rate Limit: 20 req/10s official (configured with buffer of 2)
  */
 const KIEAI_CONFIG: AIProviderConfig = {
   provider: 'kieai',
@@ -96,6 +109,12 @@ const KIEAI_CONFIG: AIProviderConfig = {
   },
   pollingInterval: 5000,    // 5s – check task status
   maxPollingAttempts: 60,   // 5min max wait
+  rateLimit: {
+    maxRequests: 18,        // 20 official minus 2 buffer
+    windowMs: 10_000,       // 10 seconds
+    waitForSlot: true,
+    maxWaitMs: 30_000,
+  },
 };
 
 /** Map of all provider configs */

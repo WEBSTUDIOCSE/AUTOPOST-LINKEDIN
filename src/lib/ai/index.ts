@@ -40,5 +40,23 @@ export type { IAIAdapter } from './adapter.interface';
 // Factory
 export { createAIAdapter, getAvailableProviders } from './adapter.factory';
 
+// Rate Limiter
+export { RateLimiter, DEFAULT_RATE_LIMITS } from './rate-limiter';
+export type { RateLimiterConfig, RateLimiterStatus } from './rate-limiter';
+
+// Kie.AI Model Catalog
+export {
+  KIE_IMAGE_MODELS,
+  KIE_VIDEO_MODELS,
+  KIE_CHAT_MODELS,
+  KIE_ALL_MODELS,
+  KIE_MODEL_MAP,
+  getKieModelsByCapability,
+  getKieModelIds,
+  isValidKieModel,
+  getKieModelInfo,
+} from './kieai-models';
+export type { KieModelInfo, KieModelCapability } from './kieai-models';
+
 // Config helper (re-exported from environments for convenience)
 export { getAIConfig, getCurrentAIProvider } from '../firebase/config/environments';

@@ -1,0 +1,1663 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
+    
+  <url>
+    <loc>https://docs.kie.ai/4o-image-api/generate-4-o-image</loc>
+    <lastmod>2026-01-28T06:50:00.963Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/4o-image-api/generate-4-o-image-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.412Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/4o-image-api/get-4-o-image-details</loc>
+    <lastmod>2026-01-28T06:50:00.958Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/4o-image-api/get-4-o-image-download-url</loc>
+    <lastmod>2026-01-28T06:50:00.962Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/4o-image-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:00.964Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/4o-image-api/generate-4-o-image</loc>
+    <lastmod>2026-01-28T06:50:00.965Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/4o-image-api/generate-4-o-image-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.410Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/4o-image-api/get-4-o-image-details</loc>
+    <lastmod>2026-01-28T06:50:00.960Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/4o-image-api/get-4-o-image-download-url</loc>
+    <lastmod>2026-01-28T06:50:00.964Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/4o-image-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:00.966Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/common-api/download-url</loc>
+    <lastmod>2026-02-14T09:46:59.504Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/common-api/get-account-credits</loc>
+    <lastmod>2026-02-14T09:46:59.509Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/common-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:00.984Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/common-api/webhook-verification</loc>
+    <lastmod>2026-01-29T11:44:03.837Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/file-upload-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:00.983Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/file-upload-api/upload-file-base-64</loc>
+    <lastmod>2026-02-14T09:46:59.512Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/file-upload-api/upload-file-stream</loc>
+    <lastmod>2026-02-14T09:46:59.510Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/file-upload-api/upload-file-url</loc>
+    <lastmod>2026-02-14T09:46:59.507Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/flux-kontext-api/generate-or-edit-image</loc>
+    <lastmod>2026-01-28T06:50:00.986Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/flux-kontext-api/generate-or-edit-image-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.408Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/flux-kontext-api/get-image-details</loc>
+    <lastmod>2026-01-28T06:50:00.985Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/flux-kontext-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.004Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn</loc>
+    <lastmod>2026-01-28T06:50:01.000Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/luma-api/generate-luma-modify-video</loc>
+    <lastmod>2026-01-28T06:50:01.003Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/luma-api/generate-luma-modify-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.409Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/luma-api/get-luma-modify-details</loc>
+    <lastmod>2026-01-28T06:50:01.001Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/luma-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.006Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/seedance-1.5-pro</loc>
+    <lastmod>2026-01-28T06:50:01.005Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/v1-lite-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.005Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/v1-lite-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.002Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/v1-pro-fast-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.003Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/v1-pro-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.024Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/bytedance/v1-pro-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.027Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/chat/gpt-5-2</loc>
+    <lastmod>2026-02-13T06:03:59.061Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/claude/claude-opus-4-5</loc>
+    <lastmod>2026-01-28T06:50:01.024Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/claude/claude-sonnet-4-5</loc>
+    <lastmod>2026-01-28T06:50:01.029Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/common/get-task-detail</loc>
+    <lastmod>2026-01-30T03:52:39.398Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/audio-isolation</loc>
+    <lastmod>2026-01-28T06:50:01.026Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/sound-effect-v2</loc>
+    <lastmod>2026-01-28T06:50:01.025Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/speech-to-text</loc>
+    <lastmod>2026-01-28T06:50:01.031Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/text-to-dialogue-v3</loc>
+    <lastmod>2026-01-28T06:50:01.051Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/text-to-speech-multilingual-v2</loc>
+    <lastmod>2026-01-28T06:50:01.050Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/elevenlabs/text-to-speech-turbo-2-5</loc>
+    <lastmod>2026-01-28T06:50:01.051Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/flux2/flex-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.049Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/flux2/flex-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.054Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/flux2/pro-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.048Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/flux2/pro-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.052Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/gemini/gemini-2.5-flash</loc>
+    <lastmod>2026-01-28T06:50:01.055Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/gemini/gemini-2.5-pro</loc>
+    <lastmod>2026-01-28T06:50:01.053Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/gemini/gemini-3-pro</loc>
+    <lastmod>2026-01-28T06:50:01.049Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/imagen4</loc>
+    <lastmod>2026-01-28T06:50:01.076Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/imagen4-fast</loc>
+    <lastmod>2026-01-28T06:50:01.074Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/imagen4-ultra</loc>
+    <lastmod>2026-01-28T06:50:01.072Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/nano-banana</loc>
+    <lastmod>2026-01-28T06:50:01.078Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/nano-banana-edit</loc>
+    <lastmod>2026-01-28T06:50:01.074Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/google/pro-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.075Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/gpt-image/1.5-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.079Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/gpt-image/1.5-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.076Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/grok-imagine/image-to-image</loc>
+    <lastmod>2026-02-14T07:29:18.860Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/grok-imagine/image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.078Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/grok-imagine/text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.108Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/grok-imagine/text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.098Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/grok-imagine/upscale</loc>
+    <lastmod>2026-01-28T06:50:01.099Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/02-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.100Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/02-image-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.109Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/02-text-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.101Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/02-text-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.103Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/2-3-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.102Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/hailuo/2-3-image-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.099Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/ideogram/character</loc>
+    <lastmod>2026-01-28T06:50:01.147Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/ideogram/character-edit</loc>
+    <lastmod>2026-01-28T06:50:01.101Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/ideogram/character-remix</loc>
+    <lastmod>2026-01-28T06:50:01.148Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/ideogram/v3-reframe</loc>
+    <lastmod>2026-01-28T06:50:01.145Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/infinitalk/from-audio</loc>
+    <lastmod>2026-01-28T06:50:01.146Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/ai-avatar-pro</loc>
+    <lastmod>2026-01-28T06:50:01.140Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/ai-avatar-standard</loc>
+    <lastmod>2026-01-28T06:50:01.138Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.174Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/kling-3.0</loc>
+    <lastmod>2026-02-14T07:52:08.257Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/motion-control</loc>
+    <lastmod>2026-01-28T06:50:01.171Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.170Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-1-master-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.173Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-1-master-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.175Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-1-pro</loc>
+    <lastmod>2026-01-28T06:50:01.171Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-1-standard</loc>
+    <lastmod>2026-01-28T06:50:01.173Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-5-turbo-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.168Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/kling/v2-5-turbo-text-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.172Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/quickstart</loc>
+    <lastmod>2026-02-09T11:19:19.751Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/qwen/image-edit</loc>
+    <lastmod>2026-01-28T06:50:01.192Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/qwen/image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.189Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/qwen/text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.190Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/recraft/crisp-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.193Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/recraft/remove-background</loc>
+    <lastmod>2026-01-28T06:50:01.190Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/seedream/4.5-edit</loc>
+    <lastmod>2026-01-28T06:50:01.191Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/seedream/4.5-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.195Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/seedream/seedream</loc>
+    <lastmod>2026-01-28T06:50:01.217Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/seedream/seedream-v4-edit</loc>
+    <lastmod>2026-01-28T06:50:01.194Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/seedream/seedream-v4-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.192Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora-2-pro-storyboard</loc>
+    <lastmod>2026-01-28T06:50:01.214Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-characters</loc>
+    <lastmod>2026-01-28T06:50:01.212Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-characters-pro</loc>
+    <lastmod>2026-02-04T10:42:48.131Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-image-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.057Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-pro-image-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.047Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-pro-text-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.059Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-2-text-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.058Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/sora2/sora-watermark-remover</loc>
+    <lastmod>2026-01-28T06:50:01.213Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/topaz/image-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.216Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/topaz/video-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.216Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-2-a14b-image-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.231Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-2-a14b-speech-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.233Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-2-a14b-text-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.239Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-2-animate-move</loc>
+    <lastmod>2026-01-28T06:50:01.234Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-2-animate-replace</loc>
+    <lastmod>2026-01-28T06:50:01.237Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-6-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.238Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-6-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.235Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/wan/2-6-video-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.237Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/market/z-image/z-image</loc>
+    <lastmod>2026-01-28T06:50:01.239Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/extend-ai-video</loc>
+    <lastmod>2026-01-28T06:50:01.254Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/extend-ai-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.420Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/generate-ai-video</loc>
+    <lastmod>2026-01-28T06:50:01.257Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/generate-ai-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.412Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/generate-aleph-video</loc>
+    <lastmod>2026-01-28T06:50:01.256Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/generate-aleph-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.422Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/get-ai-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.259Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/get-aleph-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.261Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/runway-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.262Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/add-instrumental</loc>
+    <lastmod>2026-01-28T06:50:01.278Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/add-instrumental-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.411Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/add-vocals</loc>
+    <lastmod>2026-01-28T06:50:01.279Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/add-vocals-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.413Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/boost-music-style</loc>
+    <lastmod>2026-02-14T09:47:00.821Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/convert-to-wav</loc>
+    <lastmod>2026-01-28T06:50:01.278Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/convert-to-wav-callbacks</loc>
+    <lastmod>2026-02-02T03:11:15.420Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/cover-suno</loc>
+    <lastmod>2026-01-28T06:50:01.282Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/cover-suno-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.736Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/create-music-video</loc>
+    <lastmod>2026-01-28T06:50:01.280Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/create-music-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.729Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/extend-music</loc>
+    <lastmod>2026-01-28T06:50:01.300Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/extend-music-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.727Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-lyrics</loc>
+    <lastmod>2026-01-28T06:50:01.301Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-lyrics-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.732Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-mashup</loc>
+    <lastmod>2026-02-10T11:40:41.756Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-midi</loc>
+    <lastmod>2026-01-28T06:50:01.303Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-midi-callbacks</loc>
+    <lastmod>2026-02-13T06:03:59.734Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-music</loc>
+    <lastmod>2026-01-28T06:50:01.306Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-music-callbacks</loc>
+    <lastmod>2026-02-11T06:26:51.137Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/generate-persona</loc>
+    <lastmod>2026-02-10T11:40:41.966Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-cover-suno-details</loc>
+    <lastmod>2026-01-28T06:50:01.305Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-lyrics-details</loc>
+    <lastmod>2026-01-28T06:50:01.321Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-midi-details</loc>
+    <lastmod>2026-01-28T06:50:01.328Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-music-details</loc>
+    <lastmod>2026-01-28T06:50:01.326Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-music-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.324Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-timestamped-lyrics</loc>
+    <lastmod>2026-01-28T06:50:01.323Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-vocal-separation-details</loc>
+    <lastmod>2026-01-28T06:50:01.327Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/get-wav-details</loc>
+    <lastmod>2026-01-28T06:50:01.326Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.325Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/replace-section</loc>
+    <lastmod>2026-01-28T06:50:01.329Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/replace-section-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.728Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/separate-vocals</loc>
+    <lastmod>2026-01-28T06:50:01.343Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/separate-vocals-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.734Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/upload-and-cover-audio</loc>
+    <lastmod>2026-01-28T06:50:01.349Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/upload-and-cover-audio-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.730Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/upload-and-extend-audio</loc>
+    <lastmod>2026-01-28T06:50:01.346Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/suno-api/upload-and-extend-audio-callbacks</loc>
+    <lastmod>2026-02-02T03:11:18.737Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/extend-video</loc>
+    <lastmod>2026-01-28T06:50:01.349Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/generate-veo-3-video</loc>
+    <lastmod>2026-02-14T09:47:01.259Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/generate-veo-3-video-callbacks</loc>
+    <lastmod>2026-02-13T06:04:01.148Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/get-veo-3-1080-p-video</loc>
+    <lastmod>2026-01-28T06:50:01.348Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/get-veo-3-4k-video</loc>
+    <lastmod>2026-01-28T06:50:01.363Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/get-veo-3-4k-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.497Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/get-veo-3-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.365Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/cn/veo3-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.368Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/common-api/download-url</loc>
+    <lastmod>2026-02-14T09:47:01.252Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/common-api/get-account-credits</loc>
+    <lastmod>2026-02-14T09:47:01.315Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/common-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.369Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/common-api/webhook-verification</loc>
+    <lastmod>2026-01-29T11:44:05.444Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/file-upload-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.366Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/file-upload-api/upload-file-base-64</loc>
+    <lastmod>2026-01-28T06:50:01.367Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/file-upload-api/upload-file-stream</loc>
+    <lastmod>2026-02-14T09:47:01.322Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/file-upload-api/upload-file-url</loc>
+    <lastmod>2026-02-14T09:47:01.309Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/flux-kontext-api/generate-or-edit-image</loc>
+    <lastmod>2026-01-28T06:50:01.389Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/flux-kontext-api/generate-or-edit-image-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.500Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/flux-kontext-api/get-image-details</loc>
+    <lastmod>2026-01-28T06:50:01.385Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/flux-kontext-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.392Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai</loc>
+    <lastmod>2026-01-28T06:50:01.388Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/luma-api/generate-luma-modify-video</loc>
+    <lastmod>2026-01-28T06:50:01.387Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/luma-api/generate-luma-modify-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.498Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/luma-api/get-luma-modify-details</loc>
+    <lastmod>2026-01-28T06:50:01.386Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/luma-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.390Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/seedance-1.5-pro</loc>
+    <lastmod>2026-01-28T06:50:01.406Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/v1-lite-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.408Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/v1-lite-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.408Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/v1-pro-fast-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.410Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/v1-pro-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.409Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/bytedance/v1-pro-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.411Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/chat/gpt-5-2</loc>
+    <lastmod>2026-02-13T06:04:02.676Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/claude/claude-opus-4-5</loc>
+    <lastmod>2026-01-28T06:50:01.412Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/claude/claude-sonnet-4-5</loc>
+    <lastmod>2026-01-28T06:50:01.411Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/common/get-task-detail</loc>
+    <lastmod>2026-01-30T03:52:40.725Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/audio-isolation</loc>
+    <lastmod>2026-01-28T06:50:01.429Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/sound-effect-v2</loc>
+    <lastmod>2026-01-28T06:50:01.433Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/speech-to-text</loc>
+    <lastmod>2026-01-28T06:50:01.427Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/text-to-dialogue-v3</loc>
+    <lastmod>2026-01-28T06:50:01.432Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/text-to-speech-multilingual-v2</loc>
+    <lastmod>2026-01-28T06:50:01.430Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/elevenlabs/text-to-speech-turbo-2-5</loc>
+    <lastmod>2026-01-28T06:50:01.431Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/flux2/flex-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.435Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/flux2/flex-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.434Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/flux2/pro-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.428Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/flux2/pro-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.457Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/gemini/gemini-2.5-flash</loc>
+    <lastmod>2026-01-28T06:50:01.456Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/gemini/gemini-2.5-pro</loc>
+    <lastmod>2026-01-28T06:50:01.454Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/gemini/gemini-3-pro</loc>
+    <lastmod>2026-01-28T06:50:01.458Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/imagen4</loc>
+    <lastmod>2026-01-28T06:50:01.455Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/imagen4-fast</loc>
+    <lastmod>2026-01-28T06:50:01.458Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/imagen4-ultra</loc>
+    <lastmod>2026-01-28T06:50:01.457Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/nano-banana</loc>
+    <lastmod>2026-01-28T06:50:01.453Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/nano-banana-edit</loc>
+    <lastmod>2026-01-28T06:50:01.452Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/google/pro-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.455Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/gpt-image/1.5-image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.478Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/gpt-image/1.5-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.477Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/grok-imagine/image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.478Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/grok-imagine/image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.479Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/grok-imagine/text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.476Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/grok-imagine/text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.481Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/grok-imagine/upscale</loc>
+    <lastmod>2026-01-28T06:50:01.482Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/02-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.484Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/02-image-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.480Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/02-text-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.483Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/02-text-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.507Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/2-3-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.509Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/hailuo/2-3-image-to-video-standard</loc>
+    <lastmod>2026-01-28T06:50:01.504Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/ideogram/character</loc>
+    <lastmod>2026-01-28T06:50:01.505Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/ideogram/character-edit</loc>
+    <lastmod>2026-01-28T06:50:01.507Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/ideogram/character-remix</loc>
+    <lastmod>2026-01-28T06:50:01.505Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/ideogram/v3-reframe</loc>
+    <lastmod>2026-01-28T06:50:01.502Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/infinitalk/from-audio</loc>
+    <lastmod>2026-01-28T06:50:01.533Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/ai-avatar-pro</loc>
+    <lastmod>2026-01-28T06:50:01.525Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/ai-avatar-standard</loc>
+    <lastmod>2026-01-28T06:50:01.529Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.527Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/kling-3.0</loc>
+    <lastmod>2026-02-14T07:52:09.388Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/motion-control</loc>
+    <lastmod>2026-01-28T06:50:01.529Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.528Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-1-master-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.536Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-1-master-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.535Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-1-pro</loc>
+    <lastmod>2026-01-28T06:50:01.560Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-1-standard</loc>
+    <lastmod>2026-01-28T06:50:01.562Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-5-turbo-image-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.557Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/kling/v2-5-turbo-text-to-video-pro</loc>
+    <lastmod>2026-01-28T06:50:01.559Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/quickstart</loc>
+    <lastmod>2026-02-09T11:19:20.814Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/qwen/image-edit</loc>
+    <lastmod>2026-01-28T06:50:01.564Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/qwen/image-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.561Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/qwen/text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.563Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/recraft/crisp-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.565Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/recraft/remove-background</loc>
+    <lastmod>2026-01-28T06:50:01.564Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/seedream/4.5-edit</loc>
+    <lastmod>2026-01-28T06:50:01.768Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/seedream/4.5-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.769Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/seedream/seedream</loc>
+    <lastmod>2026-01-28T06:50:01.771Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/seedream/seedream-v4-edit</loc>
+    <lastmod>2026-01-28T06:50:01.767Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/seedream/seedream-v4-text-to-image</loc>
+    <lastmod>2026-01-28T06:50:01.766Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora-2-pro-storyboard</loc>
+    <lastmod>2026-01-28T06:50:01.770Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-characters</loc>
+    <lastmod>2026-01-28T06:50:01.774Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-characters-pro</loc>
+    <lastmod>2026-02-04T10:42:49.715Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-image-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.716Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-pro-image-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.715Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-pro-text-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.718Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-2-text-to-video</loc>
+    <lastmod>2026-02-04T07:45:45.713Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/sora2/sora-watermark-remover</loc>
+    <lastmod>2026-01-28T06:50:01.790Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/topaz/image-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.795Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/topaz/video-upscale</loc>
+    <lastmod>2026-01-28T06:50:01.791Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-2-a14b-image-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.792Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-2-a14b-speech-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.793Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-2-a14b-text-to-video-turbo</loc>
+    <lastmod>2026-01-28T06:50:01.794Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-2-animate-move</loc>
+    <lastmod>2026-01-28T06:50:01.794Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-2-animate-replace</loc>
+    <lastmod>2026-01-28T06:50:01.796Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-6-image-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.797Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-6-text-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.822Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/wan/2-6-video-to-video</loc>
+    <lastmod>2026-01-28T06:50:01.821Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/market/z-image/z-image</loc>
+    <lastmod>2026-01-28T06:50:01.820Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/extend-ai-video</loc>
+    <lastmod>2026-01-28T06:50:01.827Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/extend-ai-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.496Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/generate-ai-video</loc>
+    <lastmod>2026-01-28T06:50:01.826Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/generate-ai-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.501Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/generate-aleph-video</loc>
+    <lastmod>2026-01-28T06:50:01.824Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/generate-aleph-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.504Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/get-ai-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.825Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/get-aleph-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.845Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/runway-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.847Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/add-instrumental</loc>
+    <lastmod>2026-01-28T06:50:01.843Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/add-instrumental-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.506Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/add-vocals</loc>
+    <lastmod>2026-01-28T06:50:01.842Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/add-vocals-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.503Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/boost-music-style</loc>
+    <lastmod>2026-02-14T09:47:02.036Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/convert-to-wav</loc>
+    <lastmod>2026-01-28T06:50:01.844Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/convert-to-wav-callbacks</loc>
+    <lastmod>2026-02-02T03:11:21.505Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/cover-suno</loc>
+    <lastmod>2026-01-28T06:50:01.866Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/cover-suno-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.347Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/create-music-video</loc>
+    <lastmod>2026-01-28T06:50:01.867Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/create-music-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.346Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/extend-music</loc>
+    <lastmod>2026-01-28T06:50:01.870Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/extend-music-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.351Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-lyrics</loc>
+    <lastmod>2026-01-28T06:50:01.871Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-lyrics-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.346Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-mashup</loc>
+    <lastmod>2026-02-10T11:40:42.497Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-midi</loc>
+    <lastmod>2026-01-28T06:50:01.872Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-midi-callbacks</loc>
+    <lastmod>2026-02-13T06:04:03.363Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-music</loc>
+    <lastmod>2026-01-28T06:50:01.909Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-music-callbacks</loc>
+    <lastmod>2026-02-11T06:26:52.993Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/generate-persona</loc>
+    <lastmod>2026-02-10T11:40:42.731Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-cover-suno-details</loc>
+    <lastmod>2026-01-28T06:50:01.910Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-lyrics-details</loc>
+    <lastmod>2026-01-28T06:50:01.914Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-midi-details</loc>
+    <lastmod>2026-01-28T06:50:01.911Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-music-details</loc>
+    <lastmod>2026-01-28T06:50:01.915Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-music-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.912Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-timestamped-lyrics</loc>
+    <lastmod>2026-01-28T06:50:01.913Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-vocal-separation-details</loc>
+    <lastmod>2026-01-28T06:50:01.912Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/get-wav-details</loc>
+    <lastmod>2026-01-28T06:50:01.928Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.934Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/replace-section</loc>
+    <lastmod>2026-01-28T06:50:01.933Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/replace-section-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.350Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/separate-vocals</loc>
+    <lastmod>2026-01-28T06:50:01.933Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/separate-vocals-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.355Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/upload-and-cover-audio</loc>
+    <lastmod>2026-01-28T06:50:01.930Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/upload-and-cover-audio-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.349Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/upload-and-extend-audio</loc>
+    <lastmod>2026-01-28T06:50:01.931Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/suno-api/upload-and-extend-audio-callbacks</loc>
+    <lastmod>2026-02-02T03:11:23.348Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/extend-video</loc>
+    <lastmod>2026-01-28T06:50:01.947Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/generate-veo-3-video</loc>
+    <lastmod>2026-01-28T06:50:01.951Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/generate-veo-3-video-callbacks</loc>
+    <lastmod>2026-02-13T06:04:04.258Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/get-veo-3-1080-p-video</loc>
+    <lastmod>2026-01-28T06:50:01.956Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/get-veo-3-4k-video</loc>
+    <lastmod>2026-01-28T06:50:01.952Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/get-veo-3-4k-video-callbacks</loc>
+    <lastmod>2026-02-02T03:11:25.891Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/get-veo-3-video-details</loc>
+    <lastmod>2026-01-28T06:50:01.951Z</lastmod>
+  </url>
+
+  <url>
+    <loc>https://docs.kie.ai/veo3-api/quickstart</loc>
+    <lastmod>2026-01-28T06:50:01.953Z</lastmod>
+  </url>
+</urlset>
