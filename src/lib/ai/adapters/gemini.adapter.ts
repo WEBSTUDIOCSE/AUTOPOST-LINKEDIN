@@ -29,9 +29,9 @@ import type { RateLimiterConfig, RateLimiterStatus } from '../rate-limiter';
 // ─── Default models ──────────────────────────────────────────────────────────
 
 const DEFAULT_MODELS = {
-  text: 'gemini-2.5-flash-preview-05-20',
-  image: 'gemini-2.5-flash-preview-image',
-  video: 'veo-3.0-generate-preview',
+  text: 'gemini-2.5-flash',
+  image: 'gemini-2.0-flash-exp-image-generation',
+  video: 'veo-2.0-generate-001',
 } as const;
 
 // ─── Adapter ─────────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ export class GeminiAdapter implements IAIAdapter {
         model: this.models.image,
         contents: request.prompt,
         config: {
-          responseModalities: ['Image'],
+          responseModalities: ['Image', 'Text'],
           ...(request.numberOfImages !== undefined && {
             candidateCount: request.numberOfImages,
           }),
@@ -163,6 +163,18 @@ export class GeminiAdapter implements IAIAdapter {
             }
           }
         }
+      }
+
+      // If no images were extracted, surface a meaningful error instead of silent empty result
+      if (images.length === 0) {
+        const finishReason = response.candidates?.[0]?.finishReason ?? 'UNKNOWN';
+        const reasonMessages: Record<string, string> = {
+          RECITATION: 'Image generation blocked (content policy / recitation). Try rephrasing your prompt as a visual description rather than a written task.',
+          SAFETY: 'Image generation blocked by safety filters. Try a different prompt.',
+          MAX_TOKENS: 'Response was cut off. Try a shorter prompt.',
+        };
+        const msg = reasonMessages[finishReason] ?? `No images returned (finishReason: ${finishReason}). Try a more descriptive visual prompt.`;
+        throw new AIAdapterError(msg, 'gemini', 'IMAGE_GENERATION_FAILED');
       }
 
       return {

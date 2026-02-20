@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function AITestPage() {
   return (
-    <div className="container mx-auto max-w-5xl py-8 space-y-6">
+    <div className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6 md:py-8 space-y-4 md:space-y-6">
       {/* Page header */}
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -16,7 +16,7 @@ export default function AITestPage() {
           <span>›</span>
           <span>AI Model Tester</span>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight">AI Model Tester</h1>
+        <h1 className="text-xl md:text-2xl font-bold tracking-tight">AI Model Tester</h1>
         <p className="text-sm text-muted-foreground max-w-xl">
           Select a provider, pick a capability and model, then enter a prompt to verify
           that each model is working end-to-end.

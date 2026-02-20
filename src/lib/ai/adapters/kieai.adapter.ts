@@ -56,6 +56,17 @@ const KIE_BASE_URL = 'https://api.kie.ai';
 const KIE_TASK_ENDPOINT = `${KIE_BASE_URL}/api/v1/jobs/createTask`;
 const KIE_POLL_ENDPOINT = `${KIE_BASE_URL}/api/v1/jobs/recordInfo`;
 
+/**
+ * Flux-2 models require a `resolution` field with values like '1K' or '2K'.
+ * Other image models (Seedream, Imagen, etc.) do NOT need this field.
+ */
+const FLUX_DEFAULT_RESOLUTION = '1K';
+
+/** Check if a model ID belongs to the Flux-2 family */
+function isFluxModel(modelId: string): boolean {
+  return modelId.startsWith('flux');
+}
+
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
 export class KieAIAdapter implements IAIAdapter {
@@ -205,8 +216,9 @@ export class KieAIAdapter implements IAIAdapter {
       model,
       input: {
         prompt: request.prompt,
-        // Kie.AI requires aspect_ratio — default to 1:1
         aspect_ratio: request.aspectRatio ?? '1:1',
+        // Flux-2 models require 'resolution' (e.g. '1K', '2K'); other models don't.
+        ...(isFluxModel(model) && { resolution: FLUX_DEFAULT_RESOLUTION }),
         ...(request.negativePrompt && { negative_prompt: request.negativePrompt }),
       },
     };

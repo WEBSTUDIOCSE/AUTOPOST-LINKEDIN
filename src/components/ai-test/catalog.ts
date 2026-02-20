@@ -11,49 +11,28 @@ import type { ModelOption, TestCapability, TestProvider } from './types';
 
 const GEMINI_TEXT: ModelOption[] = [
   {
-    id: 'gemini-2.0-flash',
-    label: 'Gemini 2.0 Flash',
+    id: 'gemini-2.5-flash',
+    label: 'Gemini 2.5 Flash',
     vendor: 'Google',
     pricing: 'Free tier: 15 RPM',
-    description: 'Fast, efficient text generation — stable and widely available',
+    description: 'Fast, stable Gemini 2.5 Flash — confirmed working',
   },
   {
-    id: 'gemini-2.0-flash-exp',
-    label: 'Gemini 2.0 Flash Exp',
+    id: 'gemini-2.5-pro',
+    label: 'Gemini 2.5 Pro',
     vendor: 'Google',
-    pricing: 'Free tier: 10 RPM',
-    description: 'Experimental Gemini 2.0 Flash with latest capabilities',
-  },
-  {
-    id: 'gemini-1.5-flash',
-    label: 'Gemini 1.5 Flash',
-    vendor: 'Google',
-    pricing: 'Free tier: 15 RPM',
-    description: 'Stable Gemini 1.5 Flash — reliable fallback',
-  },
-  {
-    id: 'gemini-1.5-pro',
-    label: 'Gemini 1.5 Pro',
-    vendor: 'Google',
-    pricing: '$1.25/1M input, $5/1M output',
-    description: 'Most capable Gemini 1.5 model for complex reasoning',
+    pricing: '$1.25/1M input, $10/1M output',
+    description: 'Most capable Gemini 2.5 model for complex reasoning',
   },
 ];
 
 const GEMINI_IMAGE: ModelOption[] = [
   {
-    id: 'imagen-3.0-generate-001',
-    label: 'Imagen 3',
+    id: 'gemini-2.0-flash-exp-image-generation',
+    label: 'Gemini 2.0 Flash (Image Gen)',
     vendor: 'Google',
-    pricing: '$0.03/image',
-    description: 'Google Imagen 3 — high-quality photorealistic image generation',
-  },
-  {
-    id: 'imagen-3.0-fast-generate-001',
-    label: 'Imagen 3 Fast',
-    vendor: 'Google',
-    pricing: '$0.02/image',
-    description: 'Faster, lower-cost Imagen 3 variant',
+    pricing: 'Free tier: 10 RPM',
+    description: 'Native image generation via generateContent with responseModalities: [Image]',
   },
 ];
 

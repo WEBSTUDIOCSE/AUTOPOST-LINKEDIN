@@ -131,7 +131,7 @@ export function ResultPanel({ result, onClear }: ResultPanelProps) {
                   <img
                     src={src}
                     alt={`Generated image ${i + 1}`}
-                    className="w-full object-contain max-h-[480px] bg-muted/30"
+                    className="w-full object-contain max-h-[320px] md:max-h-[480px] bg-muted/30"
                   />
                   <a
                     href={src}
@@ -159,7 +159,7 @@ export function ResultPanel({ result, onClear }: ResultPanelProps) {
           </p>
           {result.videos.map((vid, i) => (
             <div key={i} className="rounded-lg overflow-hidden border">
-              <video src={vid.url} controls className="w-full max-h-[480px]" preload="metadata" />
+              <video src={vid.url} controls className="w-full max-h-[320px] md:max-h-[480px]" preload="metadata" />
               <div className="px-3 py-2 flex items-center justify-between bg-muted/30 gap-2">
                 <span className="text-[10px] text-muted-foreground font-mono truncate flex-1">{vid.url}</span>
                 <a

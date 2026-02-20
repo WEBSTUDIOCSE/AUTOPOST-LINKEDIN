@@ -66,16 +66,19 @@ export function AITestClient() {
         return;
       }
 
+      // The API nests adapter output under `result`
+      const inner = (data.result ?? data) as Record<string, unknown>;
+
       setResult({
         status: 'success',
         capability: form.capability,
         provider: form.provider,
         model: form.model,
-        durationMs,
-        text: typeof data.text === 'string' ? data.text : undefined,
-        usage: data.usage as TestResult['usage'],
-        images: data.images as TestResult['images'],
-        videos: data.videos as TestResult['videos'],
+        durationMs: typeof data.durationMs === 'number' ? data.durationMs : durationMs,
+        text: typeof inner.text === 'string' ? inner.text : undefined,
+        usage: inner.usage as TestResult['usage'],
+        images: inner.images as TestResult['images'],
+        videos: inner.videos as TestResult['videos'],
       });
     } catch (err) {
       setResult({
@@ -91,7 +94,7 @@ export function AITestClient() {
   const isLoading = result.status === 'loading';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[340px,1fr] gap-6 items-start">
+    <div className="grid grid-cols-1 md:grid-cols-[320px,1fr] gap-4 md:gap-6 items-start">
       {/* Left column — configuration */}
       <div className="space-y-4">
         <Card>
@@ -128,7 +131,7 @@ export function AITestClient() {
       </div>
 
       {/* Right column — result */}
-      <Card className="min-h-[480px]">
+      <Card className="min-h-[320px] md:min-h-[480px]">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm font-semibold">Output</CardTitle>

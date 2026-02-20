@@ -191,10 +191,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/** Strip any internal paths or tokens from error messages before sending to client */
+/** Strip any internal file-system paths from error messages before sending to client */
 function sanitizeErrorMessage(message: string): string {
   return message
-    .replace(/[A-Za-z]:\\[^\s]*/g, '[path]')   // Windows paths
-    .replace(/\/[a-z][^\s]*/g, '[path]')         // Unix paths
-    .slice(0, 300);
+    .replace(/[A-Za-z]:\\[^\s]*/g, '[path]')                // Windows paths (C:\...)
+    .replace(/(?:^|\s)\/(?:home|usr|var|tmp|etc|opt)[^\s]*/g, '[path]')  // Unix absolute paths
+    .slice(0, 500);
 }
