@@ -22,14 +22,14 @@ export interface AuthConfig {
  */
 export const AUTH_CONFIG: AuthConfig = {
   emailVerification: {
-    required: false, // Set to true if email verification is mandatory
+    required: true,   // Users must verify email before accessing features
     sendOnSignup: true, // Send verification email on signup
   },
   passwordRequirements: {
-    minLength: 6,
-    requireUppercase: false,
-    requireLowercase: false,
-    requireNumbers: false,
+    minLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumbers: true,
     requireSpecialChars: false,
   },
 };

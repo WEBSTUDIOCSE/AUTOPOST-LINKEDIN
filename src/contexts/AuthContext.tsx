@@ -52,20 +52,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Get Firebase ID token
         const token = await user.getIdToken();
         
-        // Set auth cookie via API route with user data
+        // Send only the token — server verifies & extracts user data via Admin SDK
         await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            token,
-            user: {
-              uid: user.uid,
-              email: user.email,
-              displayName: user.displayName,
-              photoURL: user.photoURL,
-              emailVerified: user.emailVerified,
-            }
-          }),
+          body: JSON.stringify({ token }),
         });
       } else {
         // Clear auth cookie

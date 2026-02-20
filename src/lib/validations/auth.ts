@@ -1,11 +1,38 @@
 import { z } from 'zod';
 import { AUTH_CONFIG } from '@/lib/auth/config';
 
+const { passwordRequirements: pw } = AUTH_CONFIG;
+
 // Password validation based on auth config
-const passwordValidation = z
+let passwordValidation = z
   .string()
   .min(1, 'Password is required')
-  .min(AUTH_CONFIG.passwordRequirements.minLength, `Password must be at least ${AUTH_CONFIG.passwordRequirements.minLength} characters`);
+  .min(pw.minLength, `Password must be at least ${pw.minLength} characters`);
+
+if (pw.requireUppercase) {
+  passwordValidation = passwordValidation.refine(
+    (val) => /[A-Z]/.test(val),
+    'Password must contain at least one uppercase letter'
+  ) as unknown as z.ZodString;
+}
+if (pw.requireLowercase) {
+  passwordValidation = passwordValidation.refine(
+    (val) => /[a-z]/.test(val),
+    'Password must contain at least one lowercase letter'
+  ) as unknown as z.ZodString;
+}
+if (pw.requireNumbers) {
+  passwordValidation = passwordValidation.refine(
+    (val) => /[0-9]/.test(val),
+    'Password must contain at least one number'
+  ) as unknown as z.ZodString;
+}
+if (pw.requireSpecialChars) {
+  passwordValidation = passwordValidation.refine(
+    (val) => /[^A-Za-z0-9]/.test(val),
+    'Password must contain at least one special character'
+  ) as unknown as z.ZodString;
+}
 
 // Login form validation schema
 export const loginSchema = z.object({

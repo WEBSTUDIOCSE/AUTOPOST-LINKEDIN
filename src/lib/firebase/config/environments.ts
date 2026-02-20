@@ -70,7 +70,7 @@ export const AI_PROVIDER: AIProvider = 'gemini';
  */
 const GEMINI_CONFIG: AIProviderConfig = {
   provider: 'gemini',
-  apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
+  apiKey: process.env.GEMINI_API_KEY || '',
   models: {
     text: 'gemini-2.5-flash',
     image: 'gemini-2.5-flash-image',
@@ -105,7 +105,7 @@ const GEMINI_CONFIG: AIProviderConfig = {
  */
 const KIEAI_CONFIG: AIProviderConfig = {
   provider: 'kieai',
-  apiKey: process.env.NEXT_PUBLIC_KIEAI_API_KEY || '',
+  apiKey: process.env.KIEAI_API_KEY || '',
   models: {
     text: 'gemini-2.5-flash',
     image: 'flux-2/pro-text-to-image',

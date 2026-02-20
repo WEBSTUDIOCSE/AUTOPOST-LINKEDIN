@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 3. Build the authenticated Google API URL (key stays server-side)
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
       { error: 'Server configuration error' },

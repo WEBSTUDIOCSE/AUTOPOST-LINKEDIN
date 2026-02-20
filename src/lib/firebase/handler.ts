@@ -122,18 +122,25 @@ export async function firebaseHandler<T>(
     return createSuccessResponse(result);
     
   } catch (error) {
-    // Handle Firebase errors
+    // Handle Firebase errors — use mapped user-friendly messages only
     if (error instanceof FirebaseError) {
       const userFriendlyMessage = ERROR_MESSAGES[error.code] || 
-                                  `Firebase error: ${error.message}`;
+                                  'An unexpected error occurred. Please try again.';
       
+      // Log only the error code, never the raw message (may contain PII/internal paths)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`[Firebase] ${context ?? 'operation'}: ${error.code}`);
+      }
+
       return createErrorResponse<T>(userFriendlyMessage, error.code);
     }
     
-    // Handle other errors
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    
-    return createErrorResponse<T>(errorMessage, 'unknown');
+    // Handle other errors — never forward raw message to client
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[Firebase] ${context ?? 'operation'}: unknown error`);
+    }
+
+    return createErrorResponse<T>('An unexpected error occurred. Please try again.', 'unknown');
   }
 }
 
