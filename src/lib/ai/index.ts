@@ -44,6 +44,21 @@ export { createAIAdapter, getAvailableProviders } from './adapter.factory';
 export { RateLimiter, DEFAULT_RATE_LIMITS } from './rate-limiter';
 export type { RateLimiterConfig, RateLimiterStatus } from './rate-limiter';
 
+// Circuit Breaker
+export { CircuitBreaker, DEFAULT_CIRCUIT_CONFIG } from './circuit-breaker';
+export type { CircuitBreakerConfig, CircuitBreakerStatus, CircuitState } from './circuit-breaker';
+
+// Prompt Safety
+export { checkPromptSafety, checkSystemInstructionSafety, checkAllInputsSafety } from './prompt-safety';
+export type { PromptCheckResult } from './prompt-safety';
+
+// Audit Logger
+export { logAuditEntry } from './audit-logger';
+export type { AuditEntry } from './audit-logger';
+
+// Gemini Model Whitelist
+export { VALID_GEMINI_MODELS } from './adapters/gemini.adapter';
+
 // Kie.AI Model Catalog
 export {
   KIE_IMAGE_MODELS,

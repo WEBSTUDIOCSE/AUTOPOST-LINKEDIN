@@ -158,6 +158,13 @@ export interface AIProviderConfig {
     /** Max time to wait for a slot in ms (default: 30000) */
     maxWaitMs?: number;
   };
+  /** Optional: circuit breaker config (defaults: threshold 5, resetTimeout 60s) */
+  circuitBreaker?: {
+    /** Consecutive failures before opening the circuit */
+    threshold: number;
+    /** How long circuit stays open, in ms */
+    resetTimeoutMs: number;
+  };
 }
 
 // ─── Errors ──────────────────────────────────────────────────────────────────
