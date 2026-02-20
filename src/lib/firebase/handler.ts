@@ -24,7 +24,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   'auth/user-not-found': 'No account found with this email address.',
   'auth/wrong-password': 'Invalid email or password.',
   'auth/email-already-in-use': 'An account already exists with this email.',
-  'auth/weak-password': 'Password should be at least 6 characters long.',
+  'auth/weak-password': 'Password must be at least 8 characters with an uppercase letter and a number.',
   'auth/invalid-email': 'Please enter a valid email address.',
   'auth/operation-not-allowed': 'This operation is not allowed.',
   'auth/account-exists-with-different-credential': 'An account already exists with the same email but different sign-in credentials.',
@@ -109,16 +109,7 @@ export async function firebaseHandler<T>(
   context?: string
 ): Promise<ApiResponse<T>> {
   try {
-    // Start timing for performance monitoring
-    const startTime = performance.now();
-    
-    // Execute the Firebase operation
     const result = await operation();
-    
-    // End timing
-    const endTime = performance.now();
-    const duration = endTime - startTime;
-    
     return createSuccessResponse(result);
     
   } catch (error) {

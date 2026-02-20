@@ -63,9 +63,12 @@ function transformFirebaseUser(user: User, provider: string = 'email'): AppUser 
 /**
  * Save user data to Firestore
  */
+/** Firestore collection for user documents, env-switched */
+const USERS_COLLECTION = IS_PRODUCTION ? 'prod_users' : 'uat_users';
+
 async function saveUserToFirestore(user: User, provider: string = 'email'): Promise<void> {
   const userData = transformFirebaseUser(user, provider);
-  await setDoc(doc(db, 'users', user.uid), {
+  await setDoc(doc(db, USERS_COLLECTION, user.uid), {
     ...userData,
     updatedAt: serverTimestamp()
   }, { merge: true });
@@ -264,7 +267,7 @@ export const AuthService = {
 
       // Delete user data from Firestore first
       try {
-        const userDocRef = doc(db, IS_PRODUCTION ? 'prod_users' : 'uat_users', user.uid);
+        const userDocRef = doc(db, USERS_COLLECTION, user.uid);
         await deleteDoc(userDocRef);
       } catch (firestoreError) {
         // Continue even if Firestore deletion fails

@@ -13,6 +13,7 @@ const PROTECTED_ROUTES = [
   '/change-password',
   '/checkout',
   '/payment',
+  '/ai-test',
 ] as const;
 
 const AUTH_ROUTES = [
@@ -26,16 +27,13 @@ const LOGIN_URL = '/login';
 const DEFAULT_REDIRECT = '/profile';
 
 /**
- * Check if user is authenticated based on cookies
- * Next.js 16: More efficient cookie checking
+ * Check if user is authenticated based on cookies.
+ * Only the httpOnly firebaseAuthToken cookie is used — the server
+ * verifies it cryptographically via Firebase Admin SDK on every request.
  */
 function isAuthenticated(request: NextRequest): boolean {
-  // Check for Firebase auth token and user data
   const authToken = request.cookies.get('firebaseAuthToken');
-  const userData = request.cookies.get('userData');
-  
-  // Both cookies must exist and have values
-  return !!(authToken?.value && userData?.value);
+  return !!authToken?.value;
 }
 
 /**

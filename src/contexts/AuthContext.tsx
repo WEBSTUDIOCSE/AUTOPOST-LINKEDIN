@@ -5,7 +5,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 
@@ -37,37 +37,77 @@ interface AuthProviderProps {
  * Authentication Provider Component
  * Wraps app to provide real-time auth state
  */
+/** How often to proactively refresh the session cookie (50 min — tokens expire at 60 min) */
+const TOKEN_REFRESH_INTERVAL_MS = 50 * 60 * 1000;
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    // Listen for authentication state changes
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      setLoading(false);
-      
-      // Set cookie for middleware to access
-      if (user) {
-        // Get Firebase ID token
-        const token = await user.getIdToken();
-        
-        // Send only the token — server verifies & extracts user data via Admin SDK
+  /**
+   * Sync the Firebase ID token to the server-side httpOnly cookie.
+   * Silently swallows network errors so a transient failure
+   * doesn't break the client-side auth state.
+   */
+  const syncSession = useCallback(async (firebaseUser: User | null) => {
+    try {
+      if (firebaseUser) {
+        const token = await firebaseUser.getIdToken(/* forceRefresh */ false);
         await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
         });
       } else {
-        // Clear auth cookie
-        await fetch('/api/auth/session', {
-          method: 'DELETE',
-        });
+        await fetch('/api/auth/session', { method: 'DELETE' });
+      }
+    } catch {
+      // Network / server error — session cookie may be stale but
+      // the client auth state is still correct. Next request will retry.
+    }
+  }, []);
+
+  useEffect(() => {
+    // Listen for authentication state changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      setLoading(false);
+
+      // Sync session cookie
+      await syncSession(firebaseUser);
+
+      // Clear any previous refresh timer
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+
+      // Set up proactive token refresh while logged in
+      if (firebaseUser) {
+        refreshTimerRef.current = setInterval(async () => {
+          // getIdToken(true) forces a fresh token from Firebase
+          try {
+            const freshToken = await firebaseUser.getIdToken(/* forceRefresh */ true);
+            await fetch('/api/auth/session', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: freshToken }),
+            });
+          } catch {
+            // Retry on next interval
+          }
+        }, TOKEN_REFRESH_INTERVAL_MS);
       }
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+      if (refreshTimerRef.current) {
+        clearInterval(refreshTimerRef.current);
+      }
+    };
+  }, [syncSession]);
 
   const value: AuthContextType = {
     user,
