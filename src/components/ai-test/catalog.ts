@@ -42,14 +42,7 @@ const GEMINI_VIDEO: ModelOption[] = [
     label: 'Veo 2.0',
     vendor: 'Google',
     pricing: '$0.35/video-second (approx)',
-    description: 'Google Veo 2 — high-quality text/image-to-video generation',
-  },
-  {
-    id: 'veo-3.0-generate-preview',
-    label: 'Veo 3.0 Preview',
-    vendor: 'Google',
-    pricing: '$0.50/video-second (approx)',
-    description: 'Latest Veo 3 preview with audio generation',
+    description: 'Google Veo 2 — high-quality text/image-to-video generation. Confirmed working.',
   },
 ];
 

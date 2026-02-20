@@ -200,25 +200,24 @@ export class GeminiAdapter implements IAIAdapter {
 
       // Veo: async long-running operation
       // Build the generate request
-      const generateConfig: Record<string, unknown> = {
-        prompt: request.prompt,
+      const videoConfig = {
         ...(request.aspectRatio && { aspectRatio: request.aspectRatio }),
         ...(request.negativePrompt && { negativePrompt: request.negativePrompt }),
-        ...(request.durationSeconds && { durationSeconds: String(request.durationSeconds) }),
-        personGeneration: 'allow_all',
-      };
+        ...(request.durationSeconds && { durationSeconds: request.durationSeconds }),
+        personGeneration: 'allow_adult',
+      } satisfies Record<string, unknown>;
 
-      // If a starting image is provided, include it
-      if (request.imageUrl) {
-        generateConfig.image = {
-          imageUri: request.imageUrl,
-        };
-      }
+      // If a starting image is provided, include it (must be a GCS URI gs://)
+      const imageParam = request.imageUrl?.startsWith('gs://')
+        ? { gcsUri: request.imageUrl }
+        : undefined;
 
       // Use the REST-style approach via the SDK's generateVideos
       let operation = await this.client.models.generateVideos({
         model: this.models.video,
-        ...generateConfig,
+        prompt: request.prompt,
+        ...(imageParam && { image: imageParam }),
+        config: videoConfig,
       });
 
       // Poll for completion
@@ -251,6 +250,14 @@ export class GeminiAdapter implements IAIAdapter {
             });
           }
         }
+      }
+
+      if (videos.length === 0) {
+        throw new AIAdapterError(
+          'No videos returned. The prompt may have been blocked by safety filters, or generation failed silently. Try a more descriptive visual prompt.',
+          'gemini',
+          'VIDEO_GENERATION_FAILED',
+        );
       }
 
       return {
