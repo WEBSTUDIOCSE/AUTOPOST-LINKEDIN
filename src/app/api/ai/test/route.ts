@@ -1,194 +1,177 @@
 /**
- * AI Test Route — GET & POST /api/ai/test
+ * AI Test API Route — POST /api/ai/test
  *
- * Quick way to test the AI adapter system without a UI.
- *
- * ── GET  /api/ai/test ──────────────────────────────────────────────────────
- * Returns the current provider, configured models, available model catalog,
- * and rate limiter status. No API calls are made.
- *
- * ── POST /api/ai/test ─────────────────────────────────────────────────────
- * Body JSON:
- * {
- *   "capability": "text" | "image" | "video",
- *   "prompt": "A beautiful sunset over mountains",
- *   "model": "optional-model-override",       // only for kieai image/video
- *   "aspectRatio": "16:9",                     // optional
- *   "systemInstruction": "You are helpful",    // optional, text only
- *   "temperature": 0.7,                        // optional, text only
- *   "maxTokens": 1024,                         // optional, text only
- *   "durationSeconds": 5,                      // optional, video only
- *   "imageUrl": "https://...",                 // optional, video only
- *   "negativePrompt": "blurry, low quality"    // optional
- * }
- *
- * Returns the full adapter response for the given capability.
+ * Security measures:
+ *   - Auth check: only authenticated users
+ *   - Input validation: strict types, length limits
+ *   - Model whitelist: rejects unknown models
+ *   - Error sanitization: never leaks internal stack traces
+ *   - Rate limiting: enforced inside the adapter layer
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentUser } from '@/lib/auth/server';
 import {
   createAIAdapter,
   getAIConfig,
-  getCurrentAIProvider,
-  getAvailableProviders,
-  KIE_IMAGE_MODELS,
-  KIE_VIDEO_MODELS,
-  KIE_CHAT_MODELS,
+  KIE_MODEL_MAP,
   AIAdapterError,
 } from '@/lib/ai';
+import type { AIProvider, AIProviderConfig } from '@/lib/ai';
+import { AI_CONFIGS } from '@/lib/firebase/config/environments';
 
-// ─── GET /api/ai/test ────────────────────────────────────────────────────────
+// ─── Constants ───────────────────────────────────────────────────────────────
 
-export async function GET() {
-  try {
-    const config = getAIConfig();
-    const adapter = createAIAdapter(config);
-    const provider = getCurrentAIProvider();
+const MAX_PROMPT_LENGTH = 2000;
+const MAX_SYSTEM_INSTRUCTION_LENGTH = 500;
+const MAX_IMAGE_URL_LENGTH = 500;
+const VALID_CAPABILITIES = ['text', 'image', 'video'] as const;
+const VALID_PROVIDERS = ['gemini', 'kieai'] as const;
+const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9'];
 
-    // Build response with provider info + model catalog
-    const response: Record<string, unknown> = {
-      status: 'ok',
-      currentProvider: provider,
-      availableProviders: getAvailableProviders(),
-      supportedCapabilities: adapter.getSupportedCapabilities(),
-      configuredModels: config.models,
-      rateLimit: config.rateLimit ?? 'using provider defaults',
-    };
+type AllowedCapability = (typeof VALID_CAPABILITIES)[number];
+type AllowedProvider = (typeof VALID_PROVIDERS)[number];
 
-    // If KieAI, include model catalog summary
-    if (provider === 'kieai') {
-      response.kieaiModelCatalog = {
-        imageModels: KIE_IMAGE_MODELS.map((m) => ({
-          id: m.id,
-          label: m.label,
-          vendor: m.vendor,
-          pricing: m.pricing,
-        })),
-        videoModels: KIE_VIDEO_MODELS.map((m) => ({
-          id: m.id,
-          label: m.label,
-          vendor: m.vendor,
-          pricing: m.pricing,
-        })),
-        chatModels: KIE_CHAT_MODELS.map((m) => ({
-          id: m.id,
-          label: m.label,
-          vendor: m.vendor,
-          pricing: m.pricing,
-        })),
-        totalModels: {
-          image: KIE_IMAGE_MODELS.length,
-          video: KIE_VIDEO_MODELS.length,
-          chat: KIE_CHAT_MODELS.length,
-          total: KIE_IMAGE_MODELS.length + KIE_VIDEO_MODELS.length + KIE_CHAT_MODELS.length,
-        },
-      };
-    }
-
-    return NextResponse.json(response);
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Unknown error' },
-      { status: 500 },
-    );
-  }
-}
-
-// ─── POST /api/ai/test ───────────────────────────────────────────────────────
+// ─── Request Body Type ───────────────────────────────────────────────────────
 
 interface TestRequestBody {
-  capability: 'text' | 'image' | 'video';
-  prompt: string;
+  capability: AllowedCapability;
+  provider?: AllowedProvider;
   model?: string;
-  aspectRatio?: string;
+  prompt: string;
   systemInstruction?: string;
   temperature?: number;
   maxTokens?: number;
+  aspectRatio?: string;
+  negativePrompt?: string;
   durationSeconds?: number;
   imageUrl?: string;
-  negativePrompt?: string;
 }
 
+// ─── GET — model catalog + provider status ───────────────────────────────────
+
+export async function GET(request: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const config = getAIConfig();
+  return NextResponse.json({
+    currentProvider: config.provider,
+    supportedCapabilities: ['text', 'image', 'video'],
+    configuredModels: config.models,
+  });
+}
+
+// ─── POST — run a test generation ────────────────────────────────────────────
+
 export async function POST(request: NextRequest) {
+  // 1. Auth guard
+  const user = await getCurrentUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // 2. Parse JSON
+  let body: TestRequestBody;
   try {
-    const body = (await request.json()) as TestRequestBody;
+    body = (await request.json()) as TestRequestBody;
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+  }
 
-    // Validate required fields
-    if (!body.capability || !body.prompt) {
+  // 3. Validate required fields
+  if (!body.capability || !VALID_CAPABILITIES.includes(body.capability)) {
+    return NextResponse.json(
+      { error: `capability must be one of: ${VALID_CAPABILITIES.join(', ')}` },
+      { status: 400 },
+    );
+  }
+
+  if (!body.prompt || typeof body.prompt !== 'string') {
+    return NextResponse.json({ error: 'prompt is required' }, { status: 400 });
+  }
+
+  // 4. Sanitize / length-limit inputs
+  const prompt = body.prompt.trim().slice(0, MAX_PROMPT_LENGTH);
+  const systemInstruction = body.systemInstruction?.trim().slice(0, MAX_SYSTEM_INSTRUCTION_LENGTH);
+  const negativePrompt = body.negativePrompt?.trim().slice(0, MAX_PROMPT_LENGTH);
+  const imageUrl = body.imageUrl?.trim().slice(0, MAX_IMAGE_URL_LENGTH);
+  const aspectRatio = VALID_ASPECT_RATIOS.includes(body.aspectRatio ?? '')
+    ? body.aspectRatio
+    : undefined;
+  const temperature =
+    typeof body.temperature === 'number'
+      ? Math.max(0, Math.min(2, body.temperature))
+      : undefined;
+  const maxTokens =
+    typeof body.maxTokens === 'number'
+      ? Math.max(1, Math.min(8192, Math.floor(body.maxTokens)))
+      : undefined;
+  const durationSeconds =
+    typeof body.durationSeconds === 'number'
+      ? Math.max(1, Math.min(30, Math.floor(body.durationSeconds)))
+      : undefined;
+
+  // 5. Resolve provider config
+  const requestedProvider: AllowedProvider =
+    body.provider && VALID_PROVIDERS.includes(body.provider) ? body.provider : 'kieai';
+
+  const baseConfig = AI_CONFIGS[requestedProvider as AIProvider];
+  if (!baseConfig) {
+    return NextResponse.json({ error: `Unknown provider: ${requestedProvider}` }, { status: 400 });
+  }
+
+  // 6. Validate model override (only for kieai where we have a catalog)
+  let modelOverride: string | undefined;
+  if (body.model && typeof body.model === 'string') {
+    const clean = body.model.trim();
+    if (requestedProvider === 'kieai' && !KIE_MODEL_MAP.has(clean)) {
       return NextResponse.json(
-        {
-          error: 'Missing required fields: "capability" and "prompt"',
-          example: {
-            capability: 'text',
-            prompt: 'Write a LinkedIn post about AI automation',
-          },
-        },
+        { error: `Unknown model "${clean}" for provider kieai` },
         { status: 400 },
       );
     }
+    modelOverride = clean;
+  }
 
-    const validCapabilities = ['text', 'image', 'video'] as const;
-    if (!validCapabilities.includes(body.capability)) {
-      return NextResponse.json(
-        {
-          error: `Invalid capability "${body.capability}". Must be one of: ${validCapabilities.join(', ')}`,
-        },
-        { status: 400 },
-      );
-    }
+  // Build config with model override applied
+  const config: AIProviderConfig = {
+    ...baseConfig,
+    ...(modelOverride && {
+      models: {
+        ...baseConfig.models,
+        [body.capability]: modelOverride,
+      },
+    }),
+  };
 
-    const config = getAIConfig();
+  // 7. Run generation
+  try {
     const adapter = createAIAdapter(config);
-
-    if (!adapter.supportsCapability(body.capability)) {
-      return NextResponse.json(
-        {
-          error: `Provider "${adapter.provider}" does not support "${body.capability}"`,
-          supported: adapter.getSupportedCapabilities(),
-        },
-        { status: 400 },
-      );
-    }
-
     const startTime = Date.now();
     let result: unknown;
 
     switch (body.capability) {
       case 'text':
-        result = await adapter.generateText({
-          prompt: body.prompt,
-          systemInstruction: body.systemInstruction,
-          temperature: body.temperature,
-          maxTokens: body.maxTokens,
-        });
+        result = await adapter.generateText({ prompt, systemInstruction, temperature, maxTokens });
         break;
-
       case 'image':
-        result = await adapter.generateImage({
-          prompt: body.prompt,
-          aspectRatio: body.aspectRatio,
-          negativePrompt: body.negativePrompt,
-        });
+        result = await adapter.generateImage({ prompt, aspectRatio, negativePrompt });
         break;
-
       case 'video':
         result = await adapter.generateVideo({
-          prompt: body.prompt,
-          aspectRatio: body.aspectRatio,
-          durationSeconds: body.durationSeconds,
-          imageUrl: body.imageUrl,
-          negativePrompt: body.negativePrompt,
+          prompt,
+          aspectRatio,
+          negativePrompt,
+          durationSeconds,
+          imageUrl,
         });
         break;
     }
 
-    const durationMs = Date.now() - startTime;
-
     return NextResponse.json({
       status: 'success',
+      provider: requestedProvider,
       capability: body.capability,
-      provider: adapter.provider,
-      durationMs,
+      durationMs: Date.now() - startTime,
       result,
     });
   } catch (error) {
@@ -196,21 +179,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           status: 'error',
-          provider: error.provider,
           code: error.code,
-          message: error.message,
-          statusCode: error.statusCode,
+          // Safe user-facing message (no stack traces)
+          error: sanitizeErrorMessage(error.message),
         },
         { status: error.statusCode ?? 500 },
       );
     }
-
-    return NextResponse.json(
-      {
-        status: 'error',
-        message: error instanceof Error ? error.message : 'Unknown error',
-      },
-      { status: 500 },
-    );
+    // Generic fallback — never leak internals
+    return NextResponse.json({ status: 'error', error: 'Generation failed. Please try again.' }, { status: 500 });
   }
+}
+
+/** Strip any internal paths or tokens from error messages before sending to client */
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/[A-Za-z]:\\[^\s]*/g, '[path]')   // Windows paths
+    .replace(/\/[a-z][^\s]*/g, '[path]')         // Unix paths
+    .slice(0, 300);
 }

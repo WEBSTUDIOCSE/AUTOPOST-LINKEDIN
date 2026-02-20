@@ -120,7 +120,7 @@ const KIEAI_CONFIG: AIProviderConfig = {
 };
 
 /** Map of all provider configs */
-const AI_CONFIGS: Record<AIProvider, AIProviderConfig> = {
+export const AI_CONFIGS: Record<AIProvider, AIProviderConfig> = {
   gemini: GEMINI_CONFIG,
   kieai: KIEAI_CONFIG,
 };
