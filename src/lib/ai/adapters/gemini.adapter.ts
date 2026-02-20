@@ -52,12 +52,14 @@ export class GeminiAdapter implements IAIAdapter {
   readonly provider = 'gemini' as const;
 
   private readonly client: GoogleGenAI;
+  private readonly apiKey: string;
   private readonly models: { text: string; image: string; video: string };
   private readonly pollingInterval: number;
   private readonly maxPollingAttempts: number;
   private readonly rateLimiter: RateLimiter;
 
   constructor(config: AIProviderConfig) {
+    this.apiKey = config.apiKey;
     this.client = new GoogleGenAI({ apiKey: config.apiKey });
     this.models = {
       text: config.models?.text ?? DEFAULT_MODELS.text,
@@ -346,12 +348,14 @@ export class GeminiAdapter implements IAIAdapter {
 
       const videos: VideoGenerationResponse['videos'] = [];
 
-      // Extract generated videos from the response
+      // Extract generated videos from the response.
+      // Note: The raw URI (generativelanguage.googleapis.com/download/v1beta/files/...)
+      // requires the API key as a query param (?key=...) for browser access.
       if (operation.response?.generatedVideos) {
         for (const genVideo of operation.response.generatedVideos) {
           if (genVideo.video?.uri) {
             videos.push({
-              url: genVideo.video.uri,
+              url: this.buildAuthenticatedVideoUrl(genVideo.video.uri),
               mimeType: 'video/mp4',
             });
           }
@@ -374,6 +378,25 @@ export class GeminiAdapter implements IAIAdapter {
   }
 
   // ── Internals ────────────────────────────────────────────────────────────
+
+  /**
+   * Append API key to a Veo video URI so the browser can fetch it directly.
+   * The raw URI from the SDK is:
+   *   https://generativelanguage.googleapis.com/download/v1beta/files/FILE_ID:download?alt=media
+   * Without the key it returns 403. We add key= so the browser can play/download it.
+   */
+  private buildAuthenticatedVideoUrl(uri: string): string {
+    try {
+      const url = new URL(uri);
+      url.searchParams.set('alt', 'media');
+      url.searchParams.set('key', this.apiKey);
+      return url.toString();
+    } catch {
+      // Fallback if URI is somehow malformed
+      const sep = uri.includes('?') ? '&' : '?';
+      return `${uri}${sep}alt=media&key=${encodeURIComponent(this.apiKey)}`;
+    }
+  }
 
   private wrapError(error: unknown, code: string): AIAdapterError {
     const message = error instanceof Error ? error.message : String(error);
