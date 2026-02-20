@@ -151,6 +151,21 @@ export function ResultPanel({ result, onClear }: ResultPanelProps) {
         </div>
       )}
 
+      {/* Blocked by prompt safety */}
+      {result.status === 'blocked' && (
+        <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/5 p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-lg mt-0.5">🛡</span>
+            <div className="space-y-1 flex-1 min-w-0">
+              <p className="text-xs font-mono font-semibold text-yellow-600 dark:text-yellow-400">PROMPT_BLOCKED</p>
+              <p className="text-sm text-muted-foreground break-words">
+                {result.error ?? 'Your prompt was blocked by the server-side safety filter. Please rephrase and try again.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Video results */}
       {result.status === 'success' && result.videos && result.videos.length > 0 && (
         <div className="space-y-3">
@@ -161,12 +176,12 @@ export function ResultPanel({ result, onClear }: ResultPanelProps) {
             <div key={i} className="rounded-lg overflow-hidden border">
               <video src={vid.url} controls className="w-full max-h-[320px] md:max-h-[480px]" preload="metadata" />
               <div className="px-3 py-2 flex items-center justify-between bg-muted/30 gap-2">
-                <span className="text-[10px] text-muted-foreground font-mono truncate flex-1">{vid.url}</span>
+                <span className="text-[10px] text-muted-foreground truncate flex-1">
+                  Video {i + 1} — streamed via proxy
+                </span>
                 <a
                   href={vid.url}
                   download
-                  target="_blank"
-                  rel="noreferrer"
                   className="text-xs text-primary hover:underline shrink-0 font-medium"
                 >
                   Download ↗
@@ -187,6 +202,7 @@ function StatusBadge({ status }: { status: TestResult['status'] }) {
     loading: { label: 'running', class: 'bg-secondary text-secondary-foreground border-transparent' },
     success: { label: 'success', class: 'bg-primary/10 text-primary border-primary/20' },
     error:   { label: 'error',   class: 'bg-destructive/10 text-destructive border-destructive/20' },
+    blocked: { label: 'blocked', class: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20' },
   };
   const s = map[status];
   return (

@@ -55,13 +55,15 @@ export function AITestClient() {
       const durationMs = Date.now() - start;
 
       if (!res.ok) {
+        const code = data?.code as string | undefined;
         setResult({
-          status: 'error',
+          // PROMPT_BLOCKED is a safety gate, not an API failure — distinguish it visually
+          status: code === 'PROMPT_BLOCKED' ? 'blocked' : 'error',
           durationMs,
           provider: form.provider,
           model: form.model,
           error: (data?.error as string) ?? `HTTP ${res.status}`,
-          errorCode: (data?.code as string) ?? undefined,
+          errorCode: code,
         });
         return;
       }

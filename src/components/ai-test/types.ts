@@ -4,7 +4,7 @@
 
 export type TestCapability = 'text' | 'image' | 'video';
 export type TestProvider = 'gemini' | 'kieai';
-export type TestStatus = 'idle' | 'loading' | 'success' | 'error';
+export type TestStatus = 'idle' | 'loading' | 'success' | 'error' | 'blocked';
 
 export interface ModelOption {
   id: string;
