@@ -70,9 +70,9 @@ const GEMINI_CONFIG: AIProviderConfig = {
   provider: 'gemini',
   apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
   models: {
-    text: 'gemini-2.5-flash-preview-05-20',
-    image: 'gemini-2.5-flash-preview-image',
-    video: 'veo-3.0-generate-preview',
+    text: 'gemini-2.0-flash',
+    image: 'imagen-3.0-generate-001',
+    video: 'veo-2.0-generate-001',
   },
   pollingInterval: 10000,   // 10s – Veo video gen is slow
   maxPollingAttempts: 60,   // 10min max wait

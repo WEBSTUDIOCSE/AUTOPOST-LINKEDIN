@@ -1,23 +1,36 @@
-import type { Metadata } from 'next';
+import { Metadata } from 'next';
 import { AITestClient } from '@/components/ai-test/AITestClient';
 
 export const metadata: Metadata = {
-  title: 'AI Model Tester',
-  description: 'Test and verify AI models — text, image, and video generation',
+  title: 'AI Model Tester — LinkedIn Automation',
+  description: 'Interactively test text, image, and video generation across AI providers.',
 };
 
 export default function AITestPage() {
   return (
-    <main className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight">AI Model Tester</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Select a provider and model, then run a test to verify it is working correctly.
-          </p>
+    <div className="container max-w-6xl py-8 space-y-6">
+      {/* Page header */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Protected</span>
+          <span>›</span>
+          <span>AI Model Tester</span>
         </div>
-        <AITestClient />
+        <h1 className="text-2xl font-bold tracking-tight">AI Model Tester</h1>
+        <p className="text-sm text-muted-foreground max-w-xl">
+          Select a provider, pick a capability and model, then enter a prompt to verify
+          that each model is working end-to-end.
+        </p>
       </div>
-    </main>
+
+      {/* Notice */}
+      <div className="rounded-lg border border-amber-300/40 bg-amber-50/40 dark:bg-amber-950/20 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400">
+        <strong>Heads up:</strong> Image and video generation may take 10–60 seconds.
+        Costs real API credits — use sparingly.
+      </div>
+
+      {/* Main tester */}
+      <AITestClient />
+    </div>
   );
 }

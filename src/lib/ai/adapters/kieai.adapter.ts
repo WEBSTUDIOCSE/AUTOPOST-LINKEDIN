@@ -205,7 +205,8 @@ export class KieAIAdapter implements IAIAdapter {
       model,
       input: {
         prompt: request.prompt,
-        ...(request.aspectRatio && { aspect_ratio: request.aspectRatio }),
+        // Kie.AI requires aspect_ratio — default to 1:1
+        aspect_ratio: request.aspectRatio ?? '1:1',
         ...(request.negativePrompt && { negative_prompt: request.negativePrompt }),
       },
     };
@@ -243,10 +244,11 @@ export class KieAIAdapter implements IAIAdapter {
       model,
       input: {
         prompt: request.prompt,
+        // Kie.AI requires aspect_ratio — default to 16:9 for video
+        aspect_ratio: request.aspectRatio ?? '16:9',
         ...(request.imageUrl && { image_url: request.imageUrl }),
         ...(request.durationSeconds && { duration: String(request.durationSeconds) }),
         ...(request.negativePrompt && { negative_prompt: request.negativePrompt }),
-        ...(request.aspectRatio && { aspect_ratio: request.aspectRatio }),
       },
     };
 

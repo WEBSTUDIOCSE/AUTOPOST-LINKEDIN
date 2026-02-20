@@ -11,38 +11,66 @@ import type { ModelOption, TestCapability, TestProvider } from './types';
 
 const GEMINI_TEXT: ModelOption[] = [
   {
-    id: 'gemini-2.5-flash-preview-05-20',
-    label: 'Gemini 2.5 Flash',
+    id: 'gemini-2.0-flash',
+    label: 'Gemini 2.0 Flash',
     vendor: 'Google',
     pricing: 'Free tier: 15 RPM',
-    description: 'Fast, efficient text generation for most tasks',
+    description: 'Fast, efficient text generation — stable and widely available',
   },
   {
-    id: 'gemini-2.5-pro-preview-05-06',
-    label: 'Gemini 2.5 Pro',
+    id: 'gemini-2.0-flash-exp',
+    label: 'Gemini 2.0 Flash Exp',
+    vendor: 'Google',
+    pricing: 'Free tier: 10 RPM',
+    description: 'Experimental Gemini 2.0 Flash with latest capabilities',
+  },
+  {
+    id: 'gemini-1.5-flash',
+    label: 'Gemini 1.5 Flash',
+    vendor: 'Google',
+    pricing: 'Free tier: 15 RPM',
+    description: 'Stable Gemini 1.5 Flash — reliable fallback',
+  },
+  {
+    id: 'gemini-1.5-pro',
+    label: 'Gemini 1.5 Pro',
     vendor: 'Google',
     pricing: '$1.25/1M input, $5/1M output',
-    description: 'Most capable Gemini model for complex reasoning',
+    description: 'Most capable Gemini 1.5 model for complex reasoning',
   },
 ];
 
 const GEMINI_IMAGE: ModelOption[] = [
   {
-    id: 'gemini-2.5-flash-preview-image',
-    label: 'Gemini 2.5 Flash — Image (Nano Banana)',
+    id: 'imagen-3.0-generate-001',
+    label: 'Imagen 3',
     vendor: 'Google',
-    pricing: 'Free tier included',
-    description: 'Native image generation using Gemini Nano Banana',
+    pricing: '$0.03/image',
+    description: 'Google Imagen 3 — high-quality photorealistic image generation',
+  },
+  {
+    id: 'imagen-3.0-fast-generate-001',
+    label: 'Imagen 3 Fast',
+    vendor: 'Google',
+    pricing: '$0.02/image',
+    description: 'Faster, lower-cost Imagen 3 variant',
   },
 ];
 
 const GEMINI_VIDEO: ModelOption[] = [
   {
-    id: 'veo-3.0-generate-preview',
-    label: 'Veo 3.0',
+    id: 'veo-2.0-generate-001',
+    label: 'Veo 2.0',
     vendor: 'Google',
     pricing: '$0.35/video-second (approx)',
-    description: 'High-quality text/image-to-video with audio',
+    description: 'Google Veo 2 — high-quality text/image-to-video generation',
+  },
+  {
+    id: 'veo-3.0-generate-preview',
+    label: 'Veo 3.0 Preview',
+    vendor: 'Google',
+    pricing: '$0.50/video-second (approx)',
+    description: 'Latest Veo 3 preview with audio generation',
   },
 ];
 

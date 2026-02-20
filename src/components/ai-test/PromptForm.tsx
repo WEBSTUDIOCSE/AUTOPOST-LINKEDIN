@@ -126,15 +126,15 @@ export function PromptForm({ capability, values, onChange, onSubmit, loading }: 
                   Aspect Ratio
                 </Label>
                 <Select
-                  value={values.aspectRatio ?? ''}
-                  onValueChange={(v) => onChange({ aspectRatio: v || undefined })}
+                  value={values.aspectRatio ?? '_none'}
+                  onValueChange={(v) => onChange({ aspectRatio: v === '_none' ? undefined : v })}
                   disabled={loading}
                 >
                   <SelectTrigger className="h-8 text-sm">
                     <SelectValue placeholder="Default" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Default</SelectItem>
+                    <SelectItem value="_none">Default (auto)</SelectItem>
                     {ASPECT_RATIOS.map((r) => (
                       <SelectItem key={r} value={r}>{r}</SelectItem>
                     ))}
