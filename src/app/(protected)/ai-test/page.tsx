@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function AITestPage() {
   return (
-    <div className="container max-w-6xl py-8 space-y-6">
+    <div className="container mx-auto max-w-5xl py-8 space-y-6">
       {/* Page header */}
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -24,7 +24,7 @@ export default function AITestPage() {
       </div>
 
       {/* Notice */}
-      <div className="rounded-lg border border-amber-300/40 bg-amber-50/40 dark:bg-amber-950/20 px-4 py-2.5 text-xs text-amber-700 dark:text-amber-400">
+      <div className="rounded-lg border px-4 py-2.5 text-xs bg-muted/50 text-muted-foreground">
         <strong>Heads up:</strong> Image and video generation may take 10–60 seconds.
         Costs real API credits — use sparingly.
       </div>

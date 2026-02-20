@@ -24,9 +24,9 @@ interface ModelPickerProps {
 }
 
 const CAP_STYLES: Record<TestCapability, string> = {
-  text:  'data-[active=true]:bg-violet-600 data-[active=true]:text-white data-[active=true]:border-violet-600',
-  image: 'data-[active=true]:bg-sky-600  data-[active=true]:text-white data-[active=true]:border-sky-600',
-  video: 'data-[active=true]:bg-rose-600 data-[active=true]:text-white data-[active=true]:border-rose-600',
+  text:  'data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm',
+  image: 'data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm',
+  video: 'data-[active=true]:bg-primary data-[active=true]:text-primary-foreground data-[active=true]:shadow-sm',
 };
 
 export function ModelPicker({

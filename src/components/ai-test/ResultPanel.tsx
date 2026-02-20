@@ -181,11 +181,12 @@ export function ResultPanel({ result, onClear }: ResultPanelProps) {
 }
 
 function StatusBadge({ status }: { status: TestResult['status'] }) {
+  // Using standard theme tokens (primary/destructive/secondary/muted)
   const map: Record<NonNullable<TestResult['status']>, { label: string; class: string }> = {
-    idle:    { label: 'idle',    class: 'bg-muted text-muted-foreground' },
-    loading: { label: 'running', class: 'bg-amber-500/15 text-amber-600 border-amber-300/50' },
-    success: { label: 'success', class: 'bg-emerald-500/15 text-emerald-600 border-emerald-300/50' },
-    error:   { label: 'error',   class: 'bg-destructive/15 text-destructive border-destructive/30' },
+    idle:    { label: 'idle',    class: 'bg-muted text-muted-foreground border-transparent' },
+    loading: { label: 'running', class: 'bg-secondary text-secondary-foreground border-transparent' },
+    success: { label: 'success', class: 'bg-primary/10 text-primary border-primary/20' },
+    error:   { label: 'error',   class: 'bg-destructive/10 text-destructive border-destructive/20' },
   };
   const s = map[status];
   return (
