@@ -27,8 +27,12 @@ export interface TestFormValues {
   // image/video options
   aspectRatio?: string;
   negativePrompt?: string;
+  // image-only options
+  imageSize?: string;
+  numberOfImages?: number;
   // video only
   durationSeconds?: number;
+  resolution?: string;
   imageUrl?: string;
 }
 

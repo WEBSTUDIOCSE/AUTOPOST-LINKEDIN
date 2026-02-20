@@ -46,12 +46,16 @@ export interface TextGenerationResponse {
 export interface ImageGenerationRequest {
   /** Text prompt describing the image */
   prompt: string;
-  /** Aspect ratio (e.g. '1:1', '16:9', '9:16') */
+  /** Aspect ratio (e.g. '1:1', '16:9', '9:16', '3:4', '4:3', '21:9') */
   aspectRatio?: string;
   /** Negative prompt - what to avoid */
   negativePrompt?: string;
   /** Number of images to generate (default 1) */
   numberOfImages?: number;
+  /** Output image resolution: '1K', '2K', '4K' (Nano Banana Pro / Imagen) */
+  imageSize?: string;
+  /** Allow person generation: 'allow_all', 'allow_adult', 'dont_allow' */
+  personGeneration?: string;
 }
 
 export interface ImageGenerationResponse {
@@ -81,10 +85,16 @@ export interface VideoGenerationRequest {
   imageUrl?: string;
   /** Aspect ratio (e.g. '16:9', '9:16') */
   aspectRatio?: string;
-  /** Duration in seconds */
+  /** Duration in seconds (Veo 3.1: 4, 6, 8) */
   durationSeconds?: number;
   /** Negative prompt - what to avoid */
   negativePrompt?: string;
+  /** Output resolution: '720p', '1080p', '4k' (Veo 3.1) */
+  resolution?: string;
+  /** Allow person generation: 'allow_all', 'allow_adult', 'dont_allow' */
+  personGeneration?: string;
+  /** Number of videos to generate (default 1) */
+  numberOfVideos?: number;
 }
 
 export interface VideoGenerationResponse {

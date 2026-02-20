@@ -27,7 +27,9 @@ const MAX_SYSTEM_INSTRUCTION_LENGTH = 500;
 const MAX_IMAGE_URL_LENGTH = 500;
 const VALID_CAPABILITIES = ['text', 'image', 'video'] as const;
 const VALID_PROVIDERS = ['gemini', 'kieai'] as const;
-const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9'];
+const VALID_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '5:4', '2:3', '3:2', '21:9'];
+const VALID_IMAGE_SIZES = ['1K', '2K', '4K'];
+const VALID_VIDEO_RESOLUTIONS = ['720p', '1080p', '4k'];
 
 type AllowedCapability = (typeof VALID_CAPABILITIES)[number];
 type AllowedProvider = (typeof VALID_PROVIDERS)[number];
@@ -46,6 +48,10 @@ interface TestRequestBody {
   negativePrompt?: string;
   durationSeconds?: number;
   imageUrl?: string;
+  // New fields
+  imageSize?: string;
+  numberOfImages?: number;
+  resolution?: string;
 }
 
 // ─── GET — model catalog + provider status ───────────────────────────────────
@@ -109,6 +115,16 @@ export async function POST(request: NextRequest) {
     typeof body.durationSeconds === 'number'
       ? Math.max(1, Math.min(30, Math.floor(body.durationSeconds)))
       : undefined;
+  const imageSize = VALID_IMAGE_SIZES.includes(body.imageSize ?? '')
+    ? body.imageSize
+    : undefined;
+  const numberOfImages =
+    typeof body.numberOfImages === 'number'
+      ? Math.max(1, Math.min(4, Math.floor(body.numberOfImages)))
+      : undefined;
+  const resolution = VALID_VIDEO_RESOLUTIONS.includes(body.resolution ?? '')
+    ? body.resolution
+    : undefined;
 
   // 5. Resolve provider config
   const requestedProvider: AllowedProvider =
@@ -154,7 +170,13 @@ export async function POST(request: NextRequest) {
         result = await adapter.generateText({ prompt, systemInstruction, temperature, maxTokens });
         break;
       case 'image':
-        result = await adapter.generateImage({ prompt, aspectRatio, negativePrompt });
+        result = await adapter.generateImage({
+          prompt,
+          aspectRatio,
+          negativePrompt,
+          imageSize,
+          numberOfImages,
+        });
         break;
       case 'video':
         result = await adapter.generateVideo({
@@ -163,6 +185,7 @@ export async function POST(request: NextRequest) {
           negativePrompt,
           durationSeconds,
           imageUrl,
+          resolution,
         });
         break;
     }

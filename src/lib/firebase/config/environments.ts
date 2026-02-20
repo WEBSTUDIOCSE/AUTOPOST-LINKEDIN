@@ -60,9 +60,11 @@ export const AI_PROVIDER: AIProvider = 'gemini';
  * Docs: https://ai.google.dev/gemini-api/docs
  * 
  * Models:
- *   text  → gemini-2.5-flash                       (fast, stable text generation)
- *   image → gemini-2.0-flash-exp-image-generation   (native image gen via generateContent)
- *   video → veo-2.0-generate-001                    (Veo 2 – async video generation)
+ *   text  → gemini-2.5-flash                (fast, stable text generation)
+ *   image → gemini-2.5-flash-image           (Nano Banana — native image gen via generateContent)
+ *   video → veo-3.1-generate-preview         (Veo 3.1 — native audio, 720p/1080p/4K)
+ * 
+ * Imagen models (imagen-4.0-*) use a separate generateImages API — auto-detected by adapter.
  * 
  * Rate Limit: 15 RPM free tier (configured with buffer of 1)
  */
@@ -71,8 +73,8 @@ const GEMINI_CONFIG: AIProviderConfig = {
   apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
   models: {
     text: 'gemini-2.5-flash',
-    image: 'gemini-2.0-flash-exp-image-generation',
-    video: 'veo-2.0-generate-001',
+    image: 'gemini-2.5-flash-image',
+    video: 'veo-3.1-generate-preview',
   },
   pollingInterval: 10000,   // 10s – Veo video gen is slow
   maxPollingAttempts: 60,   // 10min max wait

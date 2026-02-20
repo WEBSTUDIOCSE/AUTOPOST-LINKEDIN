@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ASPECT_RATIOS } from './catalog';
+import { ASPECT_RATIOS, IMAGE_SIZES, VIDEO_RESOLUTIONS, VIDEO_DURATIONS } from './catalog';
 import type { TestCapability, TestFormValues } from './types';
 
 interface PromptFormProps {
@@ -157,6 +157,49 @@ export function PromptForm({ capability, values, onChange, onSubmit, loading }: 
             </>
           )}
 
+          {/* Image-only options */}
+          {capability === 'image' && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  Image Size
+                </Label>
+                <Select
+                  value={values.imageSize ?? '_none'}
+                  onValueChange={(v) => onChange({ imageSize: v === '_none' ? undefined : v })}
+                  disabled={loading}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Default (1K)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">Default (1K)</SelectItem>
+                    {IMAGE_SIZES.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex-1">
+                <Label className="text-xs text-muted-foreground mb-1 block">
+                  Number of Images
+                </Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={4}
+                  placeholder="1"
+                  value={values.numberOfImages ?? ''}
+                  onChange={(e) =>
+                    onChange({ numberOfImages: e.target.value ? parseInt(e.target.value) : undefined })
+                  }
+                  disabled={loading}
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Video-only options */}
           {capability === 'video' && (
             <>
@@ -165,27 +208,52 @@ export function PromptForm({ capability, values, onChange, onSubmit, loading }: 
                   <Label className="text-xs text-muted-foreground mb-1 block">
                     Duration (seconds)
                   </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={30}
-                    placeholder="5"
-                    value={values.durationSeconds ?? ''}
-                    onChange={(e) =>
-                      onChange({ durationSeconds: e.target.value ? parseInt(e.target.value) : undefined })
+                  <Select
+                    value={values.durationSeconds?.toString() ?? '_none'}
+                    onValueChange={(v) =>
+                      onChange({ durationSeconds: v === '_none' ? undefined : parseInt(v) })
                     }
                     disabled={loading}
-                    className="h-8 text-sm"
-                  />
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default (8s)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Default (8s)</SelectItem>
+                      {VIDEO_DURATIONS.map((d) => (
+                        <SelectItem key={d} value={d.toString()}>{d}s</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1">
+                  <Label className="text-xs text-muted-foreground mb-1 block">
+                    Resolution
+                  </Label>
+                  <Select
+                    value={values.resolution ?? '_none'}
+                    onValueChange={(v) => onChange({ resolution: v === '_none' ? undefined : v })}
+                    disabled={loading}
+                  >
+                    <SelectTrigger className="h-8 text-sm">
+                      <SelectValue placeholder="Default (720p)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">Default (720p)</SelectItem>
+                      {VIDEO_RESOLUTIONS.map((r) => (
+                        <SelectItem key={r} value={r}>{r}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">
-                  Starting Image URL <span className="opacity-60">(optional)</span>
+                  Starting Image URL <span className="opacity-60">(optional, gs:// for Veo)</span>
                 </Label>
                 <Input
                   type="url"
-                  placeholder="https://example.com/image.jpg"
+                  placeholder="gs://bucket/image.jpg or https://..."
                   maxLength={500}
                   value={values.imageUrl ?? ''}
                   onChange={(e) => onChange({ imageUrl: e.target.value || undefined })}

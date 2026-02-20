@@ -15,34 +15,100 @@ const GEMINI_TEXT: ModelOption[] = [
     label: 'Gemini 2.5 Flash',
     vendor: 'Google',
     pricing: 'Free tier: 15 RPM',
-    description: 'Fast, stable Gemini 2.5 Flash — confirmed working',
+    description: 'Fast, stable — great for everyday text generation',
   },
   {
     id: 'gemini-2.5-pro',
     label: 'Gemini 2.5 Pro',
     vendor: 'Google',
     pricing: '$1.25/1M input, $10/1M output',
-    description: 'Most capable Gemini 2.5 model for complex reasoning',
+    description: 'Powerful Gemini 2.5 with deep reasoning and long context',
+  },
+  {
+    id: 'gemini-3-flash-preview',
+    label: 'Gemini 3 Flash (Preview)',
+    vendor: 'Google',
+    pricing: 'Preview — free tier',
+    description: 'Next-gen Gemini 3 Flash — frontier-class at low cost',
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    label: 'Gemini 3.1 Pro (Preview)',
+    vendor: 'Google',
+    pricing: 'Preview — free tier',
+    description: 'Most intelligent Gemini model — state-of-the-art reasoning',
   },
 ];
 
 const GEMINI_IMAGE: ModelOption[] = [
+  // ── Nano Banana (native Gemini image gen via generateContent) ──
   {
-    id: 'gemini-2.0-flash-exp-image-generation',
-    label: 'Gemini 2.0 Flash (Image Gen)',
+    id: 'gemini-2.5-flash-image',
+    label: 'Nano Banana Flash (2.5)',
     vendor: 'Google',
     pricing: 'Free tier: 10 RPM',
-    description: 'Native image generation via generateContent with responseModalities: [Image]',
+    description: 'Fast native image gen — 1K resolution, optimized for speed and volume',
+  },
+  {
+    id: 'gemini-3-pro-image-preview',
+    label: 'Nano Banana Pro (3 Pro)',
+    vendor: 'Google',
+    pricing: 'Preview pricing',
+    description: 'Pro image gen — up to 4K, Thinking mode, search grounding, 14 reference images',
+  },
+  // ── Imagen (dedicated image generation via generateImages API) ──
+  {
+    id: 'imagen-4.0-generate-001',
+    label: 'Imagen 4 Standard',
+    vendor: 'Google',
+    pricing: '$0.02/image (1K), $0.04/image (2K)',
+    description: 'High-fidelity photorealistic images, up to 4 per request, 1K/2K output',
+  },
+  {
+    id: 'imagen-4.0-ultra-generate-001',
+    label: 'Imagen 4 Ultra',
+    vendor: 'Google',
+    pricing: '$0.06/image',
+    description: 'Best Imagen quality — 1 image per request, ideal for hero assets',
+  },
+  {
+    id: 'imagen-4.0-fast-generate-001',
+    label: 'Imagen 4 Fast',
+    vendor: 'Google',
+    pricing: '$0.01/image',
+    description: 'Fastest Imagen — 1–4 images, lower latency for prototyping',
+  },
+  // ── Legacy (experimental) ──
+  {
+    id: 'gemini-2.0-flash-exp-image-generation',
+    label: 'Gemini 2.0 Flash (Exp Image Gen)',
+    vendor: 'Google',
+    pricing: 'Experimental — may be deprecated',
+    description: 'Legacy experimental model. Prefer Nano Banana Flash 2.5.',
   },
 ];
 
 const GEMINI_VIDEO: ModelOption[] = [
   {
+    id: 'veo-3.1-generate-preview',
+    label: 'Veo 3.1 (Preview)',
+    vendor: 'Google',
+    pricing: '~$0.35/sec (720p), higher for 1080p/4k',
+    description: 'State-of-the-art: native audio, 720p/1080p/4K, portrait & landscape, 4-8 sec',
+  },
+  {
+    id: 'veo-3.1-fast-generate-preview',
+    label: 'Veo 3.1 Fast (Preview)',
+    vendor: 'Google',
+    pricing: '~$0.20/sec (720p)',
+    description: 'Fast variant — optimized for speed, great for rapid A/B testing',
+  },
+  {
     id: 'veo-2.0-generate-001',
     label: 'Veo 2.0',
     vendor: 'Google',
-    pricing: '$0.35/video-second (approx)',
-    description: 'Google Veo 2 — high-quality text/image-to-video generation. Confirmed working.',
+    pricing: '$0.35/video-second',
+    description: 'Stable Veo 2 — 720p silent video, 5-8 sec. Confirmed working.',
   },
 ];
 
@@ -269,7 +335,13 @@ export function getDefaultModel(provider: TestProvider, capability: TestCapabili
   return getModels(provider, capability)[0]?.id ?? '';
 }
 
-export const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '21:9'];
+export const ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4', '4:5', '5:4', '2:3', '3:2', '21:9'];
+
+export const IMAGE_SIZES = ['1K', '2K', '4K'];
+
+export const VIDEO_RESOLUTIONS = ['720p', '1080p', '4k'];
+
+export const VIDEO_DURATIONS = [4, 6, 8];
 
 export const PROVIDERS: Array<{ id: TestProvider; label: string }> = [
   { id: 'gemini', label: 'Google Gemini (Direct)' },
