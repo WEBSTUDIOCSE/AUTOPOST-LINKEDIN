@@ -200,6 +200,17 @@ export const PostService = {
     }, 'PostService.markPublished');
   },
 
+  /** Cache the LinkedIn media asset URN after uploading media at publish time */
+  setLinkedinMediaAsset(postId: string, urn: string) {
+    return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
+        linkedinMediaAsset: urn,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }, 'PostService.setLinkedinMediaAsset');
+  },
+
   /** Mark post as failed */
   markFailed(postId: string, reason: string) {
     return firebaseVoidHandler(async () => {

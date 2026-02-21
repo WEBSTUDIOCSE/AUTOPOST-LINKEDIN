@@ -13,7 +13,12 @@ import { SeriesService } from '@/lib/linkedin/services/series.service';
 import { IdeaService } from '@/lib/linkedin/services/idea.service';
 import { ProfileService } from '@/lib/linkedin/services/profile.service';
 import { generatePostDraft, regeneratePostDraft } from '@/lib/linkedin/services/post-generator.service';
-import { createLinkedInPost } from '@/lib/linkedin/linkedin-oauth';
+import {
+  createLinkedInPost,
+  uploadImageToLinkedIn,
+  uploadVideoToLinkedIn,
+  downloadMediaAsBuffer,
+} from '@/lib/linkedin/linkedin-oauth';
 import type { PostMediaType } from '@/lib/linkedin/types';
 
 // ── Validation constants ─────────────────────────────────────────────────────
@@ -360,12 +365,41 @@ export async function PATCH(request: NextRequest) {
         const publishContent = editedContent ?? post.editedContent ?? post.content;
 
         try {
+          // If post has a media URL (stored in Firebase Storage) but no LinkedIn
+          // asset URN yet, upload the media to LinkedIn now and get the URN.
+          let mediaAssetUrn = post.linkedinMediaAsset ?? undefined;
+
+          if (!mediaAssetUrn && post.mediaUrl && post.mediaType !== 'text') {
+            const mediaBuffer = await downloadMediaAsBuffer(post.mediaUrl);
+
+            if (post.mediaType === 'image') {
+              const { imageUrn } = await uploadImageToLinkedIn(
+                pubProfile.linkedinAccessToken,
+                pubProfile.linkedinMemberUrn,
+                mediaBuffer,
+              );
+              mediaAssetUrn = imageUrn;
+            } else if (post.mediaType === 'video') {
+              const { videoUrn } = await uploadVideoToLinkedIn(
+                pubProfile.linkedinAccessToken,
+                pubProfile.linkedinMemberUrn,
+                mediaBuffer,
+              );
+              mediaAssetUrn = videoUrn;
+            }
+
+            // Cache the LinkedIn asset URN on the post so re-publishes skip re-upload
+            if (mediaAssetUrn) {
+              await PostService.setLinkedinMediaAsset(post.id, mediaAssetUrn);
+            }
+          }
+
           const linkedinPostId = await createLinkedInPost({
             accessToken: pubProfile.linkedinAccessToken,
             authorUrn: pubProfile.linkedinMemberUrn,
             text: publishContent,
             mediaType: post.mediaType,
-            mediaAssetUrn: post.linkedinMediaAsset ?? undefined,
+            mediaAssetUrn,
           });
 
           await PostService.markPublished(postId, linkedinPostId);
