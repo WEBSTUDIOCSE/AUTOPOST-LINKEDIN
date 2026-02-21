@@ -153,6 +153,7 @@ export async function POST(request: NextRequest) {
 
     const dayName = scheduledFor.toLocaleDateString('en-US', { weekday: 'long' });
     const draft = await generatePostDraft({
+      userId: user.uid,
       topic,
       notes,
       seriesTitle,
@@ -311,11 +312,13 @@ export async function PATCH(request: NextRequest) {
         const dayName = new Date(post.scheduledFor).toLocaleDateString('en-US', { weekday: 'long' });
         const newDraft = await regeneratePostDraft(
           {
+            userId: user.uid,
             topic: post.topic,
             seriesTitle: undefined,
             previousPostSummary: post.previousPostSummary,
             persona: profile?.persona ?? undefined,
             publishDay: dayName,
+            mediaType: post.mediaType,
           },
           post.content,
         );

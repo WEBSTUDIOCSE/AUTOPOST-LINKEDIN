@@ -246,6 +246,8 @@ export interface AutoposterProfile {
 
 /** Everything the AI needs to generate a good draft */
 export interface PostGenerationContext {
+  /** Firebase UID — used to namespace Storage uploads */
+  userId?: string;
   /** The topic to write about */
   topic: string;
   /** Extra notes / bullet points the user attached */

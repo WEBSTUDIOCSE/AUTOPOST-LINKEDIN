@@ -13,6 +13,7 @@
 import { createAIAdapter } from '@/lib/ai';
 import { getAIConfig } from '@/lib/firebase/config/environments';
 import { AI_CONFIGS } from '@/lib/firebase/config/environments';
+import { uploadMediaToStorage } from '@/lib/firebase/services/media-storage.service';
 import { PromptService } from './prompt.service';
 import type { PostGenerationContext, PostMediaType } from '../types';
 import type { AIProviderConfig, AIProvider } from '@/lib/ai';
@@ -129,8 +130,25 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
     if (imageResult.images.length > 0) {
       const img = imageResult.images[0];
+
+      // Gemini returns base64 blobs — upload to Firebase Storage to avoid
+      // Firestore 1MB document limit when storing mediaUrl.
+      let mediaUrl: string;
+      if (img.url) {
+        mediaUrl = img.url;
+      } else if (img.base64) {
+        mediaUrl = await uploadMediaToStorage({
+          base64: img.base64,
+          mimeType: img.mimeType,
+          folder: 'posts/images',
+          userId: context.userId,
+        });
+      } else {
+        mediaUrl = '';
+      }
+
       media = {
-        url: img.url ?? (img.base64 ? `data:${img.mimeType};base64,${img.base64}` : ''),
+        url: mediaUrl,
         mimeType: img.mimeType,
         prompt: imagePrompt,
       };
@@ -157,8 +175,21 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
     if (videoResult.videos.length > 0) {
       const vid = videoResult.videos[0];
+
+      // Upload to Storage if it's base64 (same reason as images)
+      let videoUrl = vid.url;
+      const vidAny = vid as unknown as { base64?: string; mimeType?: string };
+      if (!videoUrl && vidAny.base64) {
+        videoUrl = await uploadMediaToStorage({
+          base64: vidAny.base64,
+          mimeType: vidAny.mimeType ?? vid.mimeType ?? 'video/mp4',
+          folder: 'posts/videos',
+          userId: context.userId,
+        });
+      }
+
       media = {
-        url: vid.url,
+        url: videoUrl,
         mimeType: vid.mimeType,
         prompt: videoPrompt,
       };
