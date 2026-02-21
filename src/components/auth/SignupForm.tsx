@@ -29,15 +29,17 @@ export default function SignupForm() {
   const justRegisteredRef = useRef(false);
 
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
   // Redirect if already authenticated (skip if we just registered —
-  // in that case we sign out and redirect to /login instead)
+  // in that case we sign out and redirect to /login instead).
+  // Guard with !loading so Firebase's IndexedDB restore doesn't
+  // trigger a premature redirect before onAuthStateChanged fires.
   useEffect(() => {
-    if (isAuthenticated && !justRegisteredRef.current) {
-      router.push('/profile');
+    if (!loading && isAuthenticated && !justRegisteredRef.current) {
+      router.replace('/profile');
     }
-  }, [isAuthenticated, router]);
+  }, [loading, isAuthenticated, router]);
 
   const form = useForm<SignupFormData>({
     resolver: zodResolver(signupSchema),

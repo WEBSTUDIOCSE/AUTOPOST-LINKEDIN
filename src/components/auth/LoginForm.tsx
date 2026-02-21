@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,37 +16,39 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Separator } from '@/components/ui/separator';
 import { Mail, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
 
 export default function LoginForm() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  // Prevents the isAuthenticated effect from double-navigating when
+  // onSubmit has already called router.replace.
+  const isRedirectingRef = useRef(false);
   
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
 
-  // Check for success/info messages from URL params
+  // Show any ?message= query param (e.g. from post-signup redirect)
   useEffect(() => {
     const message = searchParams.get('message');
     if (message) {
-      setSuccessMessage(message);
-      // Clear the URL params after showing the message
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, '', newUrl);
+      setSuccessMessage(decodeURIComponent(message));
+      window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [searchParams]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount — searchParams is stable on initial load
 
-  // Note: Page already handles server-side redirect if authenticated
-  // This is just a client-side optimization to avoid form render
+  // Client-side redirect once Firebase has fully initialised.
+  // Guard with !loading so we don't act on stale IndexedDB cache
+  // before onAuthStateChanged has fired for the first time.
   useEffect(() => {
-    if (isAuthenticated) {
-      const redirect = searchParams.get('redirect') || '/profile';
-      router.push(redirect);
+    if (!loading && isAuthenticated && !isRedirectingRef.current) {
+      const redirectTo = searchParams.get('redirect') || '/profile';
+      router.replace(redirectTo);
     }
-  }, [isAuthenticated, router, searchParams]);
+  }, [loading, isAuthenticated, router, searchParams]);
 
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -63,9 +65,9 @@ export default function LoginForm() {
     const result = await APIBook.auth.loginWithEmail(data.email, data.password);
     
     if (result.success) {
-      // Redirect to original page or profile
-      const redirect = searchParams.get('redirect') || '/profile';
-      router.push(redirect);
+      isRedirectingRef.current = true;
+      const redirectTo = searchParams.get('redirect') || '/profile';
+      router.replace(redirectTo);
     } else {
       setError(result.error || 'Login failed');
     }
@@ -80,9 +82,9 @@ export default function LoginForm() {
     const result = await APIBook.auth.loginWithGoogle();
     
     if (result.success) {
-      // Redirect to original page or profile
-      const redirect = searchParams.get('redirect') || '/profile';
-      router.push(redirect);
+      isRedirectingRef.current = true;
+      const redirectTo = searchParams.get('redirect') || '/profile';
+      router.replace(redirectTo);
     } else {
       setError(result.error || 'Google login failed');
     }
