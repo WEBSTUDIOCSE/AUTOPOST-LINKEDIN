@@ -40,6 +40,8 @@ export interface GeneratedPost {
   media?: GeneratedMedia;
   /** What type of media was generated */
   mediaType: PostMediaType;
+  /** Non-fatal error from media generation — post was saved as text-only */
+  mediaGenerationError?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -106,97 +108,100 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
   const summary = summaryResult.text.trim();
 
-  // 3. Generate media if requested
+  // 3. Generate media if requested — failures are non-fatal; post will be text-only
   let media: GeneratedMedia | undefined;
+  let mediaGenerationError: string | undefined;
 
   if (mediaType === 'image' && adapter.supportsCapability('image')) {
-    const imgPromptResult = await adapter.generateText({
-      prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'image'),
-      systemInstruction: PromptService.getMediaPromptInstruction('image'),
-      temperature: 0.7,
-      maxTokens: 200,
-    });
+    try {
+      const imgPromptResult = await adapter.generateText({
+        prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'image'),
+        systemInstruction: PromptService.getMediaPromptInstruction('image'),
+        temperature: 0.7,
+        maxTokens: 200,
+      });
 
-    const imagePrompt = imgPromptResult.text.trim();
-    const defaultCfg = PromptService.getImageConfig();
+      const imagePrompt = imgPromptResult.text.trim();
+      const defaultCfg = PromptService.getImageConfig();
 
-    const imageResult = await adapter.generateImage({
-      prompt: imagePrompt,
-      aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
-      numberOfImages: context.numberOfImages ?? defaultCfg.numberOfImages,
-      imageSize: context.imageSize,
-      negativePrompt: context.negativePrompt,
-    });
-
-    if (imageResult.images.length > 0) {
-      const img = imageResult.images[0];
-
-      // Gemini returns base64 blobs — upload to Firebase Storage to avoid
-      // Firestore 1MB document limit when storing mediaUrl.
-      let mediaUrl: string;
-      if (img.url) {
-        mediaUrl = img.url;
-      } else if (img.base64) {
-        mediaUrl = await uploadMediaToStorage({
-          base64: img.base64,
-          mimeType: img.mimeType,
-          folder: 'posts/images',
-          userId: context.userId,
-        });
-      } else {
-        mediaUrl = '';
-      }
-
-      media = {
-        url: mediaUrl,
-        mimeType: img.mimeType,
+      const imageResult = await adapter.generateImage({
         prompt: imagePrompt,
-      };
+        aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
+        numberOfImages: context.numberOfImages ?? defaultCfg.numberOfImages,
+        imageSize: context.imageSize,
+        negativePrompt: context.negativePrompt,
+      });
+
+      if (imageResult.images.length > 0) {
+        const img = imageResult.images[0];
+
+        // Gemini returns base64 blobs — upload to Firebase Storage to avoid
+        // Firestore 1MB document limit when storing mediaUrl.
+        let mediaUrl: string;
+        if (img.url) {
+          mediaUrl = img.url;
+        } else if (img.base64) {
+          mediaUrl = await uploadMediaToStorage({
+            base64: img.base64,
+            mimeType: img.mimeType,
+            folder: 'posts/images',
+            userId: context.userId,
+          });
+        } else {
+          mediaUrl = '';
+        }
+
+        media = { url: mediaUrl, mimeType: img.mimeType, prompt: imagePrompt };
+      }
+    } catch (imgErr) {
+      mediaGenerationError = imgErr instanceof Error ? imgErr.message : String(imgErr);
+      console.error('[post-generator] Image generation failed (continuing text-only):', mediaGenerationError);
     }
   } else if (mediaType === 'video' && adapter.supportsCapability('video')) {
-    const vidPromptResult = await adapter.generateText({
-      prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'video'),
-      systemInstruction: PromptService.getMediaPromptInstruction('video'),
-      temperature: 0.7,
-      maxTokens: 200,
-    });
+    try {
+      const vidPromptResult = await adapter.generateText({
+        prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'video'),
+        systemInstruction: PromptService.getMediaPromptInstruction('video'),
+        temperature: 0.7,
+        maxTokens: 200,
+      });
 
-    const videoPrompt = vidPromptResult.text.trim();
-    const defaultCfg = PromptService.getVideoConfig();
+      const videoPrompt = vidPromptResult.text.trim();
+      const defaultCfg = PromptService.getVideoConfig();
 
-    const videoResult = await adapter.generateVideo({
-      prompt: videoPrompt,
-      aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
-      durationSeconds: context.durationSeconds ?? defaultCfg.durationSeconds,
-      numberOfVideos: defaultCfg.numberOfVideos,
-      resolution: context.videoResolution,
-      negativePrompt: context.negativePrompt,
-    });
-
-    if (videoResult.videos.length > 0) {
-      const vid = videoResult.videos[0];
-
-      // Upload to Storage if it's base64 (same reason as images)
-      let videoUrl = vid.url;
-      const vidAny = vid as unknown as { base64?: string; mimeType?: string };
-      if (!videoUrl && vidAny.base64) {
-        videoUrl = await uploadMediaToStorage({
-          base64: vidAny.base64,
-          mimeType: vidAny.mimeType ?? vid.mimeType ?? 'video/mp4',
-          folder: 'posts/videos',
-          userId: context.userId,
-        });
-      }
-
-      media = {
-        url: videoUrl,
-        mimeType: vid.mimeType,
+      const videoResult = await adapter.generateVideo({
         prompt: videoPrompt,
-      };
+        aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
+        durationSeconds: context.durationSeconds ?? defaultCfg.durationSeconds,
+        numberOfVideos: defaultCfg.numberOfVideos,
+        resolution: context.videoResolution,
+        negativePrompt: context.negativePrompt,
+      });
+
+      if (videoResult.videos.length > 0) {
+        const vid = videoResult.videos[0];
+
+        // Upload to Storage if it's base64 (same reason as images)
+        let videoUrl = vid.url;
+        const vidAny = vid as unknown as { base64?: string; mimeType?: string };
+        if (!videoUrl && vidAny.base64) {
+          videoUrl = await uploadMediaToStorage({
+            base64: vidAny.base64,
+            mimeType: vidAny.mimeType ?? vid.mimeType ?? 'video/mp4',
+            folder: 'posts/videos',
+            userId: context.userId,
+          });
+        }
+
+        media = { url: videoUrl, mimeType: vid.mimeType, prompt: videoPrompt };
+      }
+    } catch (vidErr) {
+      mediaGenerationError = vidErr instanceof Error ? vidErr.message : String(vidErr);
+      console.error('[post-generator] Video generation failed (continuing text-only):', mediaGenerationError);
     }
   }
 
-  return { content, summary, media, mediaType };
+  return { content, summary, media, mediaType, mediaGenerationError };
 }
 
 /**

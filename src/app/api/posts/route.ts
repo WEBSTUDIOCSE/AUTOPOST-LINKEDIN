@@ -217,11 +217,16 @@ export async function POST(request: NextRequest) {
         media: draft.media,
         mediaType,
         mode,
+        ...(draft.mediaGenerationError && { mediaWarning: draft.mediaGenerationError }),
       },
     });
   } catch (err) {
     console.error('[API /posts POST]', err);
-    return NextResponse.json({ error: 'Failed to generate content' }, { status: 500 });
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json(
+      { error: process.env.NODE_ENV !== 'production' ? message : 'Failed to generate content' },
+      { status: 500 },
+    );
   }
 }
 
