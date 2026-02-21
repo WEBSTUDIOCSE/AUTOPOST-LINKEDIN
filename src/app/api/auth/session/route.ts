@@ -83,7 +83,11 @@ export async function POST(request: NextRequest) {
     //    This ensures we never store an untrusted / forged token.
     try {
       await getAdminAuth().verifyIdToken(token, /* checkRevoked */ true);
-    } catch {
+    } catch (err) {
+      // Log the real reason so it appears in the dev terminal.
+      // Common causes: FIREBASE_SERVICE_ACCOUNT_KEY not set (GCP ADC timeout),
+      // mismatched project, or a genuinely revoked / expired token.
+      console.error('[Session] verifyIdToken failed:', err instanceof Error ? err.message : err);
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 

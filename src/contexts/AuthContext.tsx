@@ -6,7 +6,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
-import { User, onAuthStateChanged } from 'firebase/auth';
+import { User, onAuthStateChanged, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 
 interface AuthContextType {
@@ -50,21 +50,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
    * Silently swallows network errors so a transient failure
    * doesn't break the client-side auth state.
    */
-  const syncSession = useCallback(async (firebaseUser: User | null) => {
+  /**
+   * Sync the Firebase ID token to the server-side httpOnly cookie.
+   * Returns true if the session is good, false if the user was signed out
+   * (e.g. Admin SDK rejected the token) — caller must NOT call setLoading(false)
+   * in that case because onAuthStateChanged(null) is already in flight.
+   */
+  const syncSession = useCallback(async (firebaseUser: User | null): Promise<boolean> => {
     try {
       if (firebaseUser) {
         const token = await firebaseUser.getIdToken(/* forceRefresh */ false);
-        await fetch('/api/auth/session', {
+        const res = await fetch('/api/auth/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token }),
         });
+
+        if (!res.ok) {
+          // Server rejected the token (Admin SDK not configured, token revoked
+          // etc.). Sign out client-side so both sides agree: unauthenticated.
+          // We return false so the caller skips setLoading(false) — the
+          // resulting onAuthStateChanged(null) will set loading=false properly,
+          // avoiding a flash where loading=false + isAuthenticated=true with
+          // no cookie, which would restart the redirect loop.
+          console.warn(`[Auth] Session sync failed (${res.status}) — signing out to stay in sync with server.`);
+          await signOut(auth);
+          return false;
+        }
+        return true;
       } else {
         await fetch('/api/auth/session', { method: 'DELETE' });
+        return true;
       }
     } catch {
-      // Network / server error — session cookie may be stale but
-      // the client auth state is still correct. Next request will retry.
+      // Network error — assume session is ok, let next interval retry.
+      return true;
     }
   }, []);
 
@@ -73,13 +93,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
 
-      // Sync session cookie FIRST — setLoading(false) is deliberately
-      // called after the await so that no component ever sees
-      // loading=false before the httpOnly cookie is written.
-      // Without this ordering, redirects to protected routes race
-      // ahead of the cookie and the server-side layout bounces the
-      // user back to /login, creating a redirect loop.
-      await syncSession(firebaseUser);
+      // syncSession FIRST — cookie must be written before loading clears.
+      // If syncSession returns false it called signOut(); the resulting
+      // onAuthStateChanged(null) will handle setLoading(false) and timer
+      // cleanup, so we return early here to avoid a race where loading=false
+      // briefly coexists with a non-null user but no cookie.
+      if (firebaseUser) {
+        const ok = await syncSession(firebaseUser);
+        if (!ok) return;
+      } else {
+        await syncSession(null);
+      }
+
       setLoading(false);
 
       // Clear any previous refresh timer

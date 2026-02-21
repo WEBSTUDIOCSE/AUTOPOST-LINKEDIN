@@ -47,7 +47,19 @@ function getAdminApp(): App {
       );
     }
   } else {
-    // Fall back to GOOGLE_APPLICATION_CREDENTIALS or GCP auto-discovery
+    // No explicit key — try GOOGLE_APPLICATION_CREDENTIALS or GCP ADC.
+    // In local development this will time-out (14 s) unless one of those
+    // is configured. Set FIREBASE_SERVICE_ACCOUNT_KEY in .env.local to fix.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[FirebaseAdmin] ⚠️  FIREBASE_SERVICE_ACCOUNT_KEY is not set. ' +
+        'The Admin SDK will attempt GCP Application Default Credentials, ' +
+        'which WILL TIME OUT in local dev. ' +
+        'Add your service account JSON to .env.local:\n' +
+        '  FIREBASE_SERVICE_ACCOUNT_KEY=\'{...}\'\n' +
+        'Download it from Firebase Console → Project Settings → Service Accounts.',
+      );
+    }
     _adminApp = initializeApp();
   }
 
