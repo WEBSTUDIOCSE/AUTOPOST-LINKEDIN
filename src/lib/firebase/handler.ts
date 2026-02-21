@@ -128,10 +128,14 @@ export async function firebaseHandler<T>(
     
     // Handle other errors — never forward raw message to client
     if (process.env.NODE_ENV !== 'production') {
-      console.warn(`[Firebase] ${context ?? 'operation'}: unknown error`);
+      console.error(`[Firebase] ${context ?? 'operation'}: non-Firebase error:`, error);
     }
 
-    return createErrorResponse<T>('An unexpected error occurred. Please try again.', 'unknown');
+    const devMessage = process.env.NODE_ENV !== 'production' && error instanceof Error
+      ? error.message
+      : 'An unexpected error occurred. Please try again.';
+
+    return createErrorResponse<T>(devMessage, 'unknown');
   }
 }
 

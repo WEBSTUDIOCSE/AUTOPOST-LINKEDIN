@@ -195,6 +195,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success || !result.data) {
+      console.error('[API /posts POST] PostService.create failed:', result.error);
       return NextResponse.json(
         { error: result.error ?? 'Failed to save post to database' },
         { status: 500 },
