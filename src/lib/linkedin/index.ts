@@ -14,6 +14,7 @@ export type {
   // Posts
   Post,
   PostStatus,
+  PostMediaType,
   // Ideas
   Idea,
   // Profile
@@ -24,6 +25,7 @@ export type {
   PostGenerationContext,
   // LinkedIn API
   LinkedInCreatePostPayload,
+  LinkedInUploadResponse,
   LinkedInProfile,
   // Notifications
   NotificationType,
@@ -41,26 +43,6 @@ export {
   PROFILES_COLLECTION,
 } from './collections';
 
-// ── Services ─────────────────────────────────────────────────────────────────
-export { SeriesService } from './services/series.service';
-export { PostService } from './services/post.service';
-export { IdeaService } from './services/idea.service';
-export { ProfileService } from './services/profile.service';
-
-// ── AI Generation (server-only) ──────────────────────────────────────────────
-export { generatePostDraft, regeneratePostDraft } from './services/post-generator.service';
-export type { GeneratedPost } from './services/post-generator.service';
-
-// ── LinkedIn OAuth (server-only) ─────────────────────────────────────────────
-export {
-  getLinkedInAuthUrl,
-  exchangeCodeForTokens,
-  refreshAccessToken,
-  getLinkedInProfile,
-  createLinkedInPost,
-} from './linkedin-oauth';
-export type { LinkedInTokens } from './linkedin-oauth';
-
 // ── Notifications (client-side) ──────────────────────────────────────────────
 export {
   requestNotificationPermission,
@@ -68,26 +50,7 @@ export {
   showBrowserNotification,
 } from './services/notification.service';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// FACADE — mirrors the APIBook pattern from firebase/services
-// ═══════════════════════════════════════════════════════════════════════════════
-
-import { SeriesService } from './services/series.service';
-import { PostService } from './services/post.service';
-import { IdeaService } from './services/idea.service';
-import { ProfileService } from './services/profile.service';
-
-/**
- * Centralized access to all autoposter services.
- *
- * Usage:
- *   import { AutoposterAPI } from '@/lib/linkedin';
- *   const series = await AutoposterAPI.series.getActiveSeries(userId);
- *   await AutoposterAPI.posts.approve(postId);
- */
-export const AutoposterAPI = {
-  series: SeriesService,
-  posts: PostService,
-  ideas: IdeaService,
-  profile: ProfileService,
-} as const;
+// NOTE: Services (SeriesService, PostService, IdeaService, ProfileService,
+// post-generator, linkedin-oauth) use firebase-admin and are server-only.
+// Import them directly from their file paths in API routes:
+//   import { SeriesService } from '@/lib/linkedin/services/series.service';

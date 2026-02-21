@@ -3,16 +3,14 @@
 /**
  * Dashboard — Main hub for the LinkedIn Autoposter
  *
- * Layout (desktop):
- *   ┌────────────┬────────────────────┐
- *   │ Stats Row  │ (4 compact cards)  │
- *   ├────────────┴────────────────────┤
- *   │ Next Post Preview (hero card)   │
- *   ├─────────────┬──────────────────-┤
- *   │ Upcoming    │ Recent Posts      │
- *   └─────────────┴──────────────────-┘
+ * Shows:
+ *   - Stats: total series, ideas, posts, published count
+ *   - Active series overview
+ *   - Recent ideas
+ *   - Next post + upcoming posts
+ *   - Recent published posts
  *
- * Mobile: single column, same order
+ * Fetches /api/posts, /api/series, /api/ideas in parallel.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -23,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Progress } from '@/components/ui/progress';
 import {
   Tooltip,
   TooltipContent,
@@ -31,8 +30,6 @@ import {
 import {
   CheckCircle2,
   Clock,
-  SkipForward,
-  Flame,
   Layers,
   Lightbulb,
   Send,
@@ -42,28 +39,24 @@ import {
   Calendar,
   ArrowRight,
   Plus,
+  FileText,
+  Image as ImageIcon,
+  Video,
+  Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Post, PostStatus } from '@/lib/linkedin/types';
+import type { Post, PostStatus, Series, Idea } from '@/lib/linkedin/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(date: Date | string): string {
   const d = new Date(date);
-  return d.toLocaleDateString('en-IN', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  });
+  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 
 function formatTime(date: Date | string): string {
   const d = new Date(date);
-  return d.toLocaleTimeString('en-IN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: true,
-  });
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
 function timeAgo(date: Date | string): string {
@@ -83,6 +76,12 @@ const STATUS_CONFIG: Record<PostStatus, { label: string; variant: 'default' | 's
   skipped: { label: 'Skipped', variant: 'secondary' },
   rejected: { label: 'Rejected', variant: 'destructive' },
   failed: { label: 'Failed', variant: 'destructive' },
+};
+
+const MEDIA_ICONS = {
+  text: FileText,
+  image: ImageIcon,
+  video: Video,
 };
 
 // ── Stat Card ────────────────────────────────────────────────────────────────
@@ -133,9 +132,7 @@ function NextPostCard({
   if (loading) {
     return (
       <Card>
-        <CardHeader>
-          <Skeleton className="h-5 w-40" />
-        </CardHeader>
+        <CardHeader><Skeleton className="h-5 w-40" /></CardHeader>
         <CardContent className="space-y-3">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-3/4" />
@@ -154,13 +151,12 @@ function NextPostCard({
           </div>
           <p className="text-sm font-medium">No upcoming posts</p>
           <p className="text-xs text-muted-foreground mt-1 max-w-xs">
-            Posts are auto-generated at 9 PM the night before posting day,
-            or you can create one manually.
+            Generate an AI post or schedule one from the Posts page.
           </p>
-          <Link href="/series" className="mt-4">
+          <Link href="/posts" className="mt-4">
             <Button size="sm" variant="outline">
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Create a Series
+              Create a Post
             </Button>
           </Link>
         </CardContent>
@@ -171,6 +167,7 @@ function NextPostCard({
   const displayContent = post.editedContent ?? post.content;
   const isPending = post.status === 'pending_review';
   const statusConfig = STATUS_CONFIG[post.status];
+  const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
 
   return (
     <Card>
@@ -182,65 +179,47 @@ function NextPostCard({
               <Badge variant={statusConfig.variant} className="shrink-0 text-[10px]">
                 {statusConfig.label}
               </Badge>
+              <MediaIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </div>
             <p className="text-xs text-muted-foreground">
               {formatDate(post.scheduledFor)} at {formatTime(post.scheduledFor)}
-              {isPending && (
-                <span className="ml-2">
-                  · Review by {formatTime(post.reviewDeadline)}
-                </span>
-              )}
+              {isPending && <span className="ml-2">· Review by {formatTime(post.reviewDeadline)}</span>}
             </p>
           </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Post preview */}
         <div className="rounded-lg border bg-secondary/30 p-4">
-          <p className="text-sm leading-relaxed whitespace-pre-line line-clamp-8">
-            {displayContent}
-          </p>
+          <p className="text-sm leading-relaxed whitespace-pre-line line-clamp-8">{displayContent}</p>
         </div>
 
-        {/* Actions */}
         {isPending && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              onClick={() => onAction(post.id, 'approve')}
-            >
-              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-              Approve
+            <Button size="sm" onClick={() => onAction(post.id, 'approve')}>
+              <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />Approve
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onAction(post.id, 'regenerate')}
-            >
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Regenerate
+            <Button size="sm" variant="outline" onClick={() => onAction(post.id, 'publish')}>
+              <Send className="mr-1.5 h-3.5 w-3.5" />Publish Now
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-muted-foreground"
-              onClick={() => onAction(post.id, 'reject')}
-            >
-              <XCircle className="mr-1.5 h-3.5 w-3.5" />
-              Reject
+            <Button size="sm" variant="outline" onClick={() => onAction(post.id, 'regenerate')}>
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Regenerate
+            </Button>
+            <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onAction(post.id, 'reject')}>
+              <XCircle className="mr-1.5 h-3.5 w-3.5" />Reject
             </Button>
           </div>
         )}
 
+        {post.status === 'approved' && (
+          <Button size="sm" onClick={() => onAction(post.id, 'publish')}>
+            <Send className="mr-1.5 h-3.5 w-3.5" />Publish Now
+          </Button>
+        )}
+
         {post.status === 'failed' && (
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onAction(post.id, 'retry')}
-            >
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Retry
+            <Button size="sm" variant="outline" onClick={() => onAction(post.id, 'retry')}>
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Retry
             </Button>
             <p className="text-xs text-destructive truncate">{post.failureReason}</p>
           </div>
@@ -250,11 +229,61 @@ function NextPostCard({
   );
 }
 
-// ── Post Row (for lists) ─────────────────────────────────────────────────────
+// ── Series Mini Card ─────────────────────────────────────────────────────────
+
+function SeriesMiniCard({ series }: { series: Series }) {
+  const progress = series.topicQueue.length > 0
+    ? Math.round((series.currentIndex / series.topicQueue.length) * 100)
+    : 0;
+
+  return (
+    <div className="flex items-center gap-3 py-3">
+      <div className="shrink-0 rounded-lg bg-secondary p-2">
+        <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{series.title}</p>
+        <div className="flex items-center gap-2 mt-1">
+          <Progress value={progress} className="h-1.5 flex-1" />
+          <span className="text-[10px] text-muted-foreground shrink-0">
+            {series.currentIndex}/{series.topicQueue.length}
+          </span>
+        </div>
+      </div>
+      <Badge
+        variant={series.status === 'active' ? 'default' : series.status === 'paused' ? 'secondary' : 'outline'}
+        className="text-[10px] shrink-0"
+      >
+        {series.status}
+      </Badge>
+    </div>
+  );
+}
+
+// ── Idea Mini Row ────────────────────────────────────────────────────────────
+
+function IdeaMiniRow({ idea }: { idea: Idea }) {
+  return (
+    <div className="flex items-start gap-3 py-3">
+      <div className="shrink-0 mt-0.5 rounded-lg bg-secondary p-2">
+        <Lightbulb className="h-3.5 w-3.5 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm leading-relaxed line-clamp-2">{idea.text}</p>
+      </div>
+      <Badge variant={idea.used ? 'secondary' : 'outline'} className="text-[10px] shrink-0 mt-0.5">
+        {idea.used ? 'Used' : 'Unused'}
+      </Badge>
+    </div>
+  );
+}
+
+// ── Post Row ─────────────────────────────────────────────────────────────────
 
 function PostRow({ post }: { post: Post }) {
   const statusConfig = STATUS_CONFIG[post.status];
   const isPublished = post.status === 'published';
+  const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
 
   return (
     <div className="flex items-center gap-3 py-3">
@@ -267,16 +296,15 @@ function PostRow({ post }: { post: Post }) {
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
         )}
       </div>
-
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{post.topic}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-medium truncate">{post.topic}</p>
+          <MediaIcon className="h-3 w-3 text-muted-foreground shrink-0" />
+        </div>
         <p className="text-xs text-muted-foreground">
-          {isPublished && post.publishedAt
-            ? timeAgo(post.publishedAt)
-            : formatDate(post.scheduledFor)}
+          {isPublished && post.publishedAt ? timeAgo(post.publishedAt) : formatDate(post.scheduledFor)}
         </p>
       </div>
-
       <Badge variant={statusConfig.variant} className="shrink-0 text-[10px]">
         {statusConfig.label}
       </Badge>
@@ -289,40 +317,53 @@ function PostRow({ post }: { post: Post }) {
 export default function DashboardClient() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
+  const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchPosts = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch('/api/posts?limit=20');
-      const data = await res.json();
-      if (data.success) setPosts(data.data ?? []);
+      const [postsRes, seriesRes, ideasRes] = await Promise.all([
+        fetch('/api/posts?limit=20'),
+        fetch('/api/series'),
+        fetch('/api/ideas'),
+      ]);
+      const [postsData, seriesData, ideasData] = await Promise.all([
+        postsRes.json(), seriesRes.json(), ideasRes.json(),
+      ]);
+      if (postsData.success) setPosts(postsData.data ?? []);
+      if (seriesData.success) setSeriesList(seriesData.data ?? []);
+      if (ideasData.success) setIdeas(ideasData.data ?? []);
     } catch {
-      // Silently fail — UI shows empty states
+      // Silently fail — empty states shown
     } finally {
       setLoading(false);
     }
   }, [user]);
 
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
   // Derive stats
   const published = posts.filter((p) => p.status === 'published');
   const upcoming = posts.filter((p) => p.status === 'pending_review' || p.status === 'approved');
-  const skipped = posts.filter((p) => p.status === 'skipped');
+  const activeSeries = seriesList.filter((s) => s.status === 'active');
+  const unusedIdeas = ideas.filter((i) => !i.used);
   const nextPost = upcoming[0] ?? null;
 
   // Post action handler
   const handleAction = async (postId: string, action: string, content?: string) => {
     try {
-      await fetch('/api/posts', {
+      const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ postId, action, editedContent: content }),
       });
-      fetchPosts(); // Refresh
+      const data = await res.json();
+      if (!data.success && data.error) {
+        alert(data.error);
+      }
+      fetchAll();
     } catch {
       // TODO: toast error
     }
@@ -331,19 +372,27 @@ export default function DashboardClient() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Your LinkedIn content engine at a glance.
-        </p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Your LinkedIn content engine at a glance.
+          </p>
+        </div>
+        <Link href="/posts">
+          <Button size="sm">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Create Post
+          </Button>
+        </Link>
       </div>
 
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Published" value={published.length} icon={Send} loading={loading} />
+        <StatCard label="Series" value={seriesList.length} icon={Layers} loading={loading} />
+        <StatCard label="Ideas" value={unusedIdeas.length} icon={Lightbulb} loading={loading} />
         <StatCard label="Upcoming" value={upcoming.length} icon={Clock} loading={loading} />
-        <StatCard label="Skipped" value={skipped.length} icon={SkipForward} loading={loading} />
-        <StatCard label="Streak" value={0} icon={Flame} loading={loading} />
+        <StatCard label="Published" value={published.length} icon={Send} loading={loading} />
       </div>
 
       {/* Next Scheduled Post — hero card */}
@@ -355,9 +404,7 @@ export default function DashboardClient() {
           {nextPost && (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="text-xs text-muted-foreground">
-                  {formatDate(nextPost.scheduledFor)}
-                </span>
+                <span className="text-xs text-muted-foreground">{formatDate(nextPost.scheduledFor)}</span>
               </TooltipTrigger>
               <TooltipContent>Scheduled publishing date</TooltipContent>
             </Tooltip>
@@ -366,19 +413,19 @@ export default function DashboardClient() {
         <NextPostCard post={nextPost} loading={loading} onAction={handleAction} />
       </section>
 
-      {/* Two-column: Upcoming + History */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Upcoming */}
+      {/* Three-column (desktop) / single-column (mobile) grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+
+        {/* Active Series */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Upcoming
+                Series
               </CardTitle>
               <Link href="/series">
                 <Button variant="ghost" size="sm" className="h-7 text-xs">
-                  <Layers className="mr-1 h-3 w-3" />
-                  Series
+                  View All
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </Link>
@@ -387,25 +434,30 @@ export default function DashboardClient() {
           <CardContent>
             {loading ? (
               <div className="space-y-3">
-                {[1, 2, 3].map((i) => (
+                {[1, 2].map((i) => (
                   <div key={i} className="flex items-center gap-3">
                     <Skeleton className="h-9 w-9 rounded-lg" />
                     <div className="flex-1 space-y-1.5">
                       <Skeleton className="h-3.5 w-3/4" />
-                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-1.5 w-full" />
                     </div>
                   </div>
                 ))}
               </div>
-            ) : upcoming.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">
-                No upcoming posts. Set up a series to get started.
-              </p>
+            ) : seriesList.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground">No series yet.</p>
+                <Link href="/series" className="mt-2 inline-block">
+                  <Button size="sm" variant="outline">
+                    <Plus className="mr-1.5 h-3 w-3" />Create Series
+                  </Button>
+                </Link>
+              </div>
             ) : (
-              <ScrollArea className={upcoming.length > 4 ? 'h-64' : undefined}>
+              <ScrollArea className={seriesList.length > 4 ? 'h-56' : undefined}>
                 <div className="divide-y">
-                  {upcoming.map((post) => (
-                    <PostRow key={post.id} post={post} />
+                  {seriesList.slice(0, 8).map((s) => (
+                    <SeriesMiniCard key={s.id} series={s} />
                   ))}
                 </div>
               </ScrollArea>
@@ -413,17 +465,65 @@ export default function DashboardClient() {
           </CardContent>
         </Card>
 
-        {/* Recent History */}
+        {/* Ideas */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                Recent
+                Ideas
               </CardTitle>
               <Link href="/ideas">
                 <Button variant="ghost" size="sm" className="h-7 text-xs">
-                  <Lightbulb className="mr-1 h-3 w-3" />
-                  Ideas
+                  View All
+                  <ArrowRight className="ml-1 h-3 w-3" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+                    <div className="flex-1 space-y-1.5">
+                      <Skeleton className="h-3.5 w-full" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : ideas.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground">No ideas yet.</p>
+                <Link href="/ideas" className="mt-2 inline-block">
+                  <Button size="sm" variant="outline">
+                    <Sparkles className="mr-1.5 h-3 w-3" />Add Ideas
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <ScrollArea className={ideas.length > 4 ? 'h-56' : undefined}>
+                <div className="divide-y">
+                  {ideas.slice(0, 8).map((idea) => (
+                    <IdeaMiniRow key={idea.id} idea={idea} />
+                  ))}
+                </div>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Posts */}
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Recent Posts
+              </CardTitle>
+              <Link href="/posts">
+                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                  View All
                   <ArrowRight className="ml-1 h-3 w-3" />
                 </Button>
               </Link>
@@ -442,14 +542,19 @@ export default function DashboardClient() {
                   </div>
                 ))}
               </div>
-            ) : published.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">
-                No posts published yet.
-              </p>
+            ) : posts.length === 0 ? (
+              <div className="text-center py-6">
+                <p className="text-sm text-muted-foreground">No posts yet.</p>
+                <Link href="/posts" className="mt-2 inline-block">
+                  <Button size="sm" variant="outline">
+                    <Plus className="mr-1.5 h-3 w-3" />Create Post
+                  </Button>
+                </Link>
+              </div>
             ) : (
-              <ScrollArea className={published.length > 4 ? 'h-64' : undefined}>
+              <ScrollArea className={posts.length > 4 ? 'h-56' : undefined}>
                 <div className="divide-y">
-                  {published.slice(0, 10).map((post) => (
+                  {posts.slice(0, 10).map((post) => (
                     <PostRow key={post.id} post={post} />
                   ))}
                 </div>

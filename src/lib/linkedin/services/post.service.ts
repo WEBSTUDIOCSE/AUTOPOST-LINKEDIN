@@ -5,28 +5,17 @@
  * Also handles skip, reject, fail, and retry flows.
  */
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  query,
-  where,
-  orderBy,
-  limit,
-  serverTimestamp,
-  type Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import 'server-only';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { firebaseHandler, firebaseVoidHandler } from '@/lib/firebase/handler';
 import { POSTS_COLLECTION } from '../collections';
-import type { Post, PostStatus } from '../types';
+import type { Post, PostStatus, PostMediaType } from '../types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function toPost(id: string, data: Record<string, unknown>): Post {
+function toPost(id: string, data: FirebaseFirestore.DocumentData): Post {
   return {
     ...data,
     id,
@@ -43,6 +32,7 @@ function toPost(id: string, data: Record<string, unknown>): Post {
 export const PostService = {
   /**
    * Create a new post (called by the draft-generation function).
+   * Supports text-only, image, and video posts.
    * Returns the new post ID.
    */
   create(data: {
@@ -55,18 +45,29 @@ export const PostService = {
     topicIndex?: number;
     previousPostSummary?: string;
     inputPrompt?: string;
+    mediaType?: PostMediaType;
+    mediaUrl?: string;
+    mediaMimeType?: string;
+    mediaPrompt?: string;
+    linkedinMediaAsset?: string;
   }) {
     return firebaseHandler(async () => {
-      const ref = await addDoc(collection(db, POSTS_COLLECTION), {
+      const db = getAdminDb();
+      const ref = await db.collection(POSTS_COLLECTION).add({
         ...data,
+        mediaType: data.mediaType ?? 'text',
+        mediaUrl: data.mediaUrl ?? null,
+        mediaMimeType: data.mediaMimeType ?? null,
+        mediaPrompt: data.mediaPrompt ?? null,
+        linkedinMediaAsset: data.linkedinMediaAsset ?? null,
         editedContent: null,
         status: 'pending_review' as PostStatus,
         publishedAt: null,
         linkedinPostId: null,
         failureReason: null,
         retryCount: 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       return ref.id;
     }, 'PostService.create');
@@ -75,22 +76,22 @@ export const PostService = {
   /** Get a single post */
   getById(postId: string) {
     return firebaseHandler(async () => {
-      const snap = await getDoc(doc(db, POSTS_COLLECTION, postId));
-      if (!snap.exists()) return null;
-      return toPost(snap.id, snap.data());
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION).doc(postId).get();
+      if (!snap.exists) return null;
+      return toPost(snap.id, snap.data()!);
     }, 'PostService.getById');
   },
 
   /** Get all posts for a user, newest first */
   getAllByUser(userId: string, maxResults = 50) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, POSTS_COLLECTION),
-        where('userId', '==', userId),
-        orderBy('scheduledFor', 'desc'),
-        limit(maxResults),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION)
+        .where('userId', '==', userId)
+        .orderBy('scheduledFor', 'desc')
+        .limit(maxResults)
+        .get();
       return snap.docs.map(d => toPost(d.id, d.data()));
     }, 'PostService.getAllByUser');
   },
@@ -98,13 +99,12 @@ export const PostService = {
   /** Get posts by status (e.g. all pending_review posts) */
   getByStatus(userId: string, status: PostStatus) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, POSTS_COLLECTION),
-        where('userId', '==', userId),
-        where('status', '==', status),
-        orderBy('scheduledFor', 'asc'),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION)
+        .where('userId', '==', userId)
+        .where('status', '==', status)
+        .orderBy('scheduledFor', 'asc')
+        .get();
       return snap.docs.map(d => toPost(d.id, d.data()));
     }, 'PostService.getByStatus');
   },
@@ -112,13 +112,12 @@ export const PostService = {
   /** Get upcoming posts (scheduled in the future, approved or pending) */
   getUpcoming(userId: string) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, POSTS_COLLECTION),
-        where('userId', '==', userId),
-        where('status', 'in', ['pending_review', 'approved']),
-        orderBy('scheduledFor', 'asc'),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION)
+        .where('userId', '==', userId)
+        .where('status', 'in', ['pending_review', 'approved'])
+        .orderBy('scheduledFor', 'asc')
+        .get();
       return snap.docs.map(d => toPost(d.id, d.data()));
     }, 'PostService.getUpcoming');
   },
@@ -126,15 +125,14 @@ export const PostService = {
   /** Get the most recent published post for a series (for AI continuity) */
   getLastPublishedInSeries(userId: string, seriesId: string) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, POSTS_COLLECTION),
-        where('userId', '==', userId),
-        where('seriesId', '==', seriesId),
-        where('status', '==', 'published'),
-        orderBy('publishedAt', 'desc'),
-        limit(1),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION)
+        .where('userId', '==', userId)
+        .where('seriesId', '==', seriesId)
+        .where('status', '==', 'published')
+        .orderBy('publishedAt', 'desc')
+        .limit(1)
+        .get();
       if (snap.empty) return null;
       return toPost(snap.docs[0].id, snap.docs[0].data());
     }, 'PostService.getLastPublishedInSeries');
@@ -145,23 +143,25 @@ export const PostService = {
   /** User approves the draft — optionally with edits */
   approve(postId: string, editedContent?: string) {
     return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
       const updates: Record<string, unknown> = {
         status: 'approved',
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       };
       if (editedContent !== undefined) {
         updates.editedContent = editedContent;
       }
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), updates);
+      await db.collection(POSTS_COLLECTION).doc(postId).update(updates);
     }, 'PostService.approve');
   },
 
   /** User explicitly rejects the draft */
   reject(postId: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         status: 'rejected',
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.reject');
   },
@@ -169,9 +169,10 @@ export const PostService = {
   /** System skips the post (review deadline passed without approval) */
   skip(postId: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         status: 'skipped',
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.skip');
   },
@@ -179,11 +180,12 @@ export const PostService = {
   /** Mark post as published with the LinkedIn post ID */
   markPublished(postId: string, linkedinPostId: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         status: 'published',
         linkedinPostId,
-        publishedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        publishedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.markPublished');
   },
@@ -191,13 +193,14 @@ export const PostService = {
   /** Mark post as failed */
   markFailed(postId: string, reason: string) {
     return firebaseVoidHandler(async () => {
-      const snap = await getDoc(doc(db, POSTS_COLLECTION, postId));
-      const retryCount = snap.exists() ? ((snap.data().retryCount as number) ?? 0) : 0;
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      const snap = await db.collection(POSTS_COLLECTION).doc(postId).get();
+      const retryCount = snap.exists ? ((snap.data()!.retryCount as number) ?? 0) : 0;
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         status: 'failed',
         failureReason: reason,
         retryCount: retryCount + 1,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.markFailed');
   },
@@ -205,10 +208,11 @@ export const PostService = {
   /** Retry a failed post — resets status to approved */
   retry(postId: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         status: 'approved',
         failureReason: null,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.retry');
   },
@@ -216,9 +220,10 @@ export const PostService = {
   /** Update post content (user editing the draft) */
   updateContent(postId: string, editedContent: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
         editedContent,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.updateContent');
   },

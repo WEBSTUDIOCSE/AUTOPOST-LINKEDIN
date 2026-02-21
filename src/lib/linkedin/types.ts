@@ -96,6 +96,9 @@ export type PostStatus =
   | 'published'
   | 'failed';
 
+/** What kind of media accompanies the text */
+export type PostMediaType = 'text' | 'image' | 'video';
+
 /**
  * Firestore: `posts/{postId}`
  *
@@ -123,6 +126,27 @@ export interface Post {
   previousPostSummary?: string;
   /** The raw idea/prompt fed to the AI when generating this post */
   inputPrompt?: string;
+
+  // ── Media ──────────────────────────────────────────────────────────────
+  /** Type of media attached — defaults to 'text' for text-only posts */
+  mediaType: PostMediaType;
+  /**
+   * URL of the generated image or video.
+   * For images: a public URL (Firebase Storage or AI provider CDN).
+   * For videos: a public URL to the video file.
+   * Undefined for text-only posts.
+   */
+  mediaUrl?: string;
+  /**
+   * LinkedIn asset URN — set after uploading media to LinkedIn.
+   * Used in the post creation payload when publishing.
+   * Format: "urn:li:image:..." or "urn:li:video:..."
+   */
+  linkedinMediaAsset?: string;
+  /** MIME type of the media (e.g. 'image/png', 'video/mp4') */
+  mediaMimeType?: string;
+  /** The AI prompt used to generate the media */
+  mediaPrompt?: string;
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */
@@ -234,6 +258,38 @@ export interface PostGenerationContext {
   persona?: string;
   /** What day the post will be published (so AI can reference "today") */
   publishDay: string;
+  /** Desired media type — 'text' (default), 'image', or 'video' */
+  mediaType?: PostMediaType;
+
+  // ── Model Override (user control) ────────────────────────────────────────
+
+  /** AI provider override — 'gemini' | 'kieai' (default: env config) */
+  provider?: 'gemini' | 'kieai';
+  /** Explicit model for text generation */
+  textModel?: string;
+  /** Explicit model for image generation */
+  imageModel?: string;
+  /** Explicit model for video generation */
+  videoModel?: string;
+  /** Temperature override (0–2, default depends on mediaType) */
+  temperature?: number;
+  /** Max tokens override for text generation */
+  maxTokens?: number;
+
+  // ── Media config overrides ───────────────────────────────────────────────
+
+  /** Aspect ratio for image/video (e.g. '1:1', '16:9') */
+  aspectRatio?: string;
+  /** Image resolution: '1K', '2K', '4K' */
+  imageSize?: string;
+  /** Number of images to generate (1–4) */
+  numberOfImages?: number;
+  /** Video duration in seconds */
+  durationSeconds?: number;
+  /** Video resolution: '720p', '1080p', '4k' */
+  videoResolution?: string;
+  /** Negative prompt — what to avoid in media generation */
+  negativePrompt?: string;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -255,6 +311,32 @@ export interface LinkedInCreatePostPayload {
   };
   lifecycleState: 'PUBLISHED';
   isReshareDisabledByAuthor: boolean;
+  /** Media content — present only for image or video posts */
+  content?: {
+    media: {
+      /** LinkedIn asset URN (from upload API) */
+      id: string;
+      /** Alt text for the media */
+      altText?: string;
+    };
+  };
+}
+
+/**
+ * Response from LinkedIn's registerUpload endpoint.
+ * Used to get the upload URL and asset URN for media posts.
+ */
+export interface LinkedInUploadResponse {
+  /** The unique asset URN (e.g. "urn:li:image:abc123") */
+  value: {
+    asset: string;
+    uploadMechanism: {
+      'com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest': {
+        headers: Record<string, string>;
+        uploadUrl: string;
+      };
+    };
+  };
 }
 
 /** Subset of LinkedIn's profile response that we need */

@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Layers,
   Lightbulb,
+  FileText,
   Settings,
   User,
   Menu,
@@ -35,9 +36,10 @@ import { useState } from 'react';
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/series', label: 'Series', icon: Layers },
-  { href: '/ideas', label: 'Ideas', icon: Lightbulb },
-  { href: '/settings', label: 'Settings', icon: Settings },
+  { href: '/posts',     label: 'Posts',     icon: FileText },
+  { href: '/series',   label: 'Series',    icon: Layers },
+  { href: '/ideas',    label: 'Ideas',     icon: Lightbulb },
+  { href: '/settings', label: 'Settings',  icon: Settings },
 ] as const;
 
 const SECONDARY_NAV = [

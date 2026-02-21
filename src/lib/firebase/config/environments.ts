@@ -6,33 +6,19 @@ import type { AIProvider, AIProviderConfig } from '@/lib/ai/types';
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * UAT Environment Configuration
- * API keys are loaded from .env.local (see .env.example)
- */
-const UAT_CONFIG: FirebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_UAT_API_KEY || "",
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_UAT_AUTH_DOMAIN || "",
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_UAT_PROJECT_ID || "",
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_UAT_STORAGE_BUCKET || "",
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_UAT_MESSAGING_SENDER_ID || "",
-    appId: process.env.NEXT_PUBLIC_FIREBASE_UAT_APP_ID || "",
-    measurementId: process.env.NEXT_PUBLIC_FIREBASE_UAT_MEASUREMENT_ID || "",
-    vapidKey: process.env.NEXT_PUBLIC_FIREBASE_UAT_VAPID_KEY || ""
-};
-
-/**
- * PROD Environment Configuration
+ * Production Firebase Configuration
+ * This is the only environment — LinkedIn Autoposter is production-only.
  * API keys are loaded from .env.local (see .env.example)
  */
 const PROD_CONFIG: FirebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_PROD_API_KEY || "",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_PROD_AUTH_DOMAIN || "",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROD_PROJECT_ID || "",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_PROD_STORAGE_BUCKET || "",
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_PROD_MESSAGING_SENDER_ID || "",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_PROD_APP_ID || "",
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_PROD_MEASUREMENT_ID || "",
-  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_PROD_VAPID_KEY || ""
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "",
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || "",
+  vapidKey: process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || "",
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -128,22 +114,12 @@ export const AI_CONFIGS: Record<AIProvider, AIProviderConfig> = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// AI ENVIRONMENT CONFIGS (per environment)
+// AI ENVIRONMENT CONFIG
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * UAT AI Configuration
+ * Production AI Configuration
  * Uses whatever AI_PROVIDER is set to above.
- * You can override per-environment if needed.
- */
-const UAT_AI_CONFIG: AIEnvironmentConfig = {
-  provider: AI_PROVIDER,
-  providerConfig: AI_CONFIGS[AI_PROVIDER],
-};
-
-/**
- * PROD AI Configuration
- * Same provider as UAT by default. Override if needed.
  */
 const PROD_AI_CONFIG: AIEnvironmentConfig = {
   provider: AI_PROVIDER,
@@ -155,14 +131,9 @@ const PROD_AI_CONFIG: AIEnvironmentConfig = {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Environment configurations map
+ * Single environment — production only.
  */
-export const ENVIRONMENTS: Record<'UAT' | 'PROD', EnvironmentConfig> = {
-  UAT: {
-    name: 'UAT',
-    config: UAT_CONFIG,
-    ai: UAT_AI_CONFIG,
-  },
+export const ENVIRONMENTS: Record<'PROD', EnvironmentConfig> = {
   PROD: {
     name: 'PROD',
     config: PROD_CONFIG,
@@ -171,20 +142,19 @@ export const ENVIRONMENTS: Record<'UAT' | 'PROD', EnvironmentConfig> = {
 };
 
 /**
- * Boolean environment switcher
- * Set to true for PROD, false for UAT
+ * Always production — LinkedIn Autoposter has no UAT environment.
  */
-export const IS_PRODUCTION = false;
+export const IS_PRODUCTION = true;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GETTERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Get current environment configuration
+ * Get current environment configuration (always PROD)
  */
 export const getCurrentEnvironment = (): EnvironmentConfig => {
-  return IS_PRODUCTION ? ENVIRONMENTS.PROD : ENVIRONMENTS.UAT;
+  return ENVIRONMENTS.PROD;
 };
 
 /**

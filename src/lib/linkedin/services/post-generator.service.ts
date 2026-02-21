@@ -1,131 +1,181 @@
 /**
  * AI Post Generation Service
  *
- * Uses the existing AI adapter layer (Gemini / KieAI) to generate
- * LinkedIn post drafts from topic + context.
+ * Uses the AI adapter layer + PromptService to generate LinkedIn post
+ * drafts with optional image or video media.
  *
- * This is a SERVER-ONLY module — it accesses API keys and should never
- * be imported from a Client Component.
+ * Supports user-controlled model selection: provider, per-capability model,
+ * temperature, max tokens, and media config overrides.
+ *
+ * SERVER-ONLY — accesses API keys, must never be imported from client code.
  */
 
 import { createAIAdapter } from '@/lib/ai';
-import { getAIConfig, getCurrentAIProvider } from '@/lib/firebase/config/environments';
-import type { PostGenerationContext } from '../types';
+import { getAIConfig } from '@/lib/firebase/config/environments';
+import { AI_CONFIGS } from '@/lib/firebase/config/environments';
+import { PromptService } from './prompt.service';
+import type { PostGenerationContext, PostMediaType } from '../types';
+import type { AIProviderConfig, AIProvider } from '@/lib/ai';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SYSTEM PROMPT
+// TYPES
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function buildSystemPrompt(persona?: string): string {
-  const base = `You are a LinkedIn post ghostwriter for a software developer.
+/** Media result from AI generation */
+export interface GeneratedMedia {
+  /** Public URL of the generated media */
+  url: string;
+  /** MIME type (e.g. 'image/png', 'video/mp4') */
+  mimeType: string;
+  /** The prompt used to generate this media */
+  prompt: string;
+}
 
-RULES:
-- Write in first person as if the developer is writing
-- Keep posts between 150–300 words (LinkedIn sweet spot)
-- Use short paragraphs (2-3 sentences max)
-- Open with a hook — a bold statement, question, or surprising fact
-- End with a call-to-action or reflective question
-- Use line breaks between paragraphs for readability
-- Include 3-5 relevant hashtags at the end
-- Use emojis sparingly (max 2-3 per post) — professional but approachable
-- Never use clickbait or false claims
-- Never start with "I'm excited to share..." or similar clichés
-- Sound authentic, not corporate
-- If this is a continuation of a series, naturally reference what was covered previously
-- Output ONLY the post text — no meta commentary, no "here's your post", no triple backticks`;
-
-  if (persona) {
-    return `${base}\n\nWRITING STYLE / PERSONA:\n${persona}`;
-  }
-
-  return base;
+export interface GeneratedPost {
+  content: string;
+  /** Short 1-line summary for feeding to the next post as context */
+  summary: string;
+  /** Generated media (image or video) — undefined for text-only posts */
+  media?: GeneratedMedia;
+  /** What type of media was generated */
+  mediaType: PostMediaType;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// USER PROMPT
+// HELPERS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function buildUserPrompt(ctx: PostGenerationContext): string {
-  const parts: string[] = [];
+/**
+ * Build an AIProviderConfig with user overrides applied.
+ * Falls back to env defaults for anything not specified.
+ */
+function buildAdapterConfig(ctx: PostGenerationContext): AIProviderConfig {
+  const provider: AIProvider = ctx.provider ?? getAIConfig().provider;
+  const baseConfig = AI_CONFIGS[provider] ?? getAIConfig();
 
-  parts.push(`TOPIC: ${ctx.topic}`);
-
-  if (ctx.seriesTitle) {
-    parts.push(`SERIES: "${ctx.seriesTitle}"`);
-  }
-
-  if (ctx.previousPostSummary) {
-    parts.push(`PREVIOUS POST SUMMARY: ${ctx.previousPostSummary}`);
-    parts.push('Continue naturally from the previous post. Reference what was covered but don\'t repeat it.');
-  }
-
-  if (ctx.notes) {
-    parts.push(`ADDITIONAL CONTEXT / NOTES:\n${ctx.notes}`);
-  }
-
-  parts.push(`PUBLISH DAY: ${ctx.publishDay}`);
-
-  parts.push('\nWrite the LinkedIn post now.');
-
-  return parts.join('\n\n');
+  return {
+    ...baseConfig,
+    provider,
+    models: {
+      text: ctx.textModel ?? baseConfig.models?.text,
+      image: ctx.imageModel ?? baseConfig.models?.image,
+      video: ctx.videoModel ?? baseConfig.models?.video,
+    },
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GENERATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export interface GeneratedPost {
-  content: string;
-  /** Short 1-line summary for feeding to the next post as context */
-  summary: string;
-}
-
 /**
  * Generate a LinkedIn post draft using the configured AI provider.
+ * Handles text generation + optional image/video generation.
  *
- * @param context — topic, series info, continuity data, persona
- * @returns The generated post content + a summary for the next draft
+ * @param context — topic, series info, continuity data, persona, mediaType,
+ *                  and optional provider/model/temperature/media overrides.
+ * @returns The generated post content + summary + optional media
  */
 export async function generatePostDraft(context: PostGenerationContext): Promise<GeneratedPost> {
-  const config = getAIConfig();
+  const config = buildAdapterConfig(context);
   const adapter = createAIAdapter(config);
+  const mediaType = context.mediaType ?? 'text';
 
-  // 1. Generate the main post
+  // Temperature: user override > PromptService default
+  const temperature = context.temperature ?? PromptService.getTemperature(mediaType);
+  const maxTokens = context.maxTokens ?? 1024;
+
+  // 1. Generate the main post text
   const postResult = await adapter.generateText({
-    prompt: buildUserPrompt(context),
-    systemInstruction: buildSystemPrompt(context.persona),
-    temperature: 0.8,   // creative but not wild
-    maxTokens: 1024,
+    prompt: PromptService.buildUserPrompt(context),
+    systemInstruction: PromptService.buildSystemPrompt(mediaType, context.persona),
+    temperature,
+    maxTokens,
   });
 
   const content = postResult.text.trim();
 
   // 2. Generate a short summary (for continuity with the next post)
   const summaryResult = await adapter.generateText({
-    prompt: `Summarize this LinkedIn post in exactly ONE sentence (max 50 words). Focus on the key topic and takeaway:\n\n${content}`,
-    systemInstruction: 'You are a concise summarizer. Output only the summary sentence, nothing else.',
+    prompt: PromptService.buildSummaryPrompt(content),
+    systemInstruction: PromptService.getSummarySystem(),
     temperature: 0.3,
     maxTokens: 100,
   });
 
-  return {
-    content,
-    summary: summaryResult.text.trim(),
-  };
+  const summary = summaryResult.text.trim();
+
+  // 3. Generate media if requested
+  let media: GeneratedMedia | undefined;
+
+  if (mediaType === 'image' && adapter.supportsCapability('image')) {
+    const imgPromptResult = await adapter.generateText({
+      prompt: PromptService.buildMediaUserPrompt(context.topic, content),
+      systemInstruction: PromptService.getMediaPromptInstruction('image'),
+      temperature: 0.7,
+      maxTokens: 200,
+    });
+
+    const imagePrompt = imgPromptResult.text.trim();
+    const defaultCfg = PromptService.getImageConfig();
+
+    const imageResult = await adapter.generateImage({
+      prompt: imagePrompt,
+      aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
+      numberOfImages: context.numberOfImages ?? defaultCfg.numberOfImages,
+      imageSize: context.imageSize,
+      negativePrompt: context.negativePrompt,
+    });
+
+    if (imageResult.images.length > 0) {
+      const img = imageResult.images[0];
+      media = {
+        url: img.url ?? (img.base64 ? `data:${img.mimeType};base64,${img.base64}` : ''),
+        mimeType: img.mimeType,
+        prompt: imagePrompt,
+      };
+    }
+  } else if (mediaType === 'video' && adapter.supportsCapability('video')) {
+    const vidPromptResult = await adapter.generateText({
+      prompt: PromptService.buildMediaUserPrompt(context.topic, content),
+      systemInstruction: PromptService.getMediaPromptInstruction('video'),
+      temperature: 0.7,
+      maxTokens: 200,
+    });
+
+    const videoPrompt = vidPromptResult.text.trim();
+    const defaultCfg = PromptService.getVideoConfig();
+
+    const videoResult = await adapter.generateVideo({
+      prompt: videoPrompt,
+      aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
+      durationSeconds: context.durationSeconds ?? defaultCfg.durationSeconds,
+      numberOfVideos: defaultCfg.numberOfVideos,
+      resolution: context.videoResolution,
+      negativePrompt: context.negativePrompt,
+    });
+
+    if (videoResult.videos.length > 0) {
+      const vid = videoResult.videos[0];
+      media = {
+        url: vid.url,
+        mimeType: vid.mimeType,
+        prompt: videoPrompt,
+      };
+    }
+  }
+
+  return { content, summary, media, mediaType };
 }
 
 /**
  * Regenerate — same as generate but with a "try a different angle" hint.
- * Useful when the user rejects a draft and wants alternatives.
  */
 export async function regeneratePostDraft(
   context: PostGenerationContext,
   previousDraft: string,
 ): Promise<GeneratedPost> {
-  const tweakedContext: PostGenerationContext = {
-    ...context,
-    notes: `${context.notes ?? ''}\n\nIMPORTANT: A previous draft was rejected. Here it is for reference — write something DIFFERENT in tone, hook, and structure:\n---\n${previousDraft}\n---`.trim(),
-  };
-
-  return generatePostDraft(tweakedContext);
+  return generatePostDraft(
+    PromptService.buildRegenerationContext(context, previousDraft),
+  );
 }

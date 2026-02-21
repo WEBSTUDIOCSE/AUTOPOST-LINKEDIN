@@ -22,8 +22,8 @@ export interface AuthConfig {
  */
 export const AUTH_CONFIG: AuthConfig = {
   emailVerification: {
-    required: true,   // Users must verify email before accessing features
-    sendOnSignup: true, // Send verification email on signup
+    required: false,       // No email verification required — direct access after signup
+    sendOnSignup: false,   // Do not send verification email on signup
   },
   passwordRequirements: {
     minLength: 8,

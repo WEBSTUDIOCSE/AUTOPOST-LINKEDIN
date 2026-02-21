@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { APIBook } from '@/lib/firebase/services';
 import { signupSchema, type SignupFormData } from '@/lib/validations/auth';
-import { AUTH_CONFIG } from '@/lib/auth/config';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,21 +22,14 @@ export default function SignupForm() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  // Tracks whether we just completed a registration — prevents the
-  // isAuthenticated watcher from redirecting to /profile before the
-  // session cookie is established (which would cause a redirect loop).
-  const justRegisteredRef = useRef(false);
 
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();
 
-  // Redirect if already authenticated (skip if we just registered —
-  // in that case we sign out and redirect to /login instead).
-  // Guard with !loading so Firebase's IndexedDB restore doesn't
-  // trigger a premature redirect before onAuthStateChanged fires.
+  // Redirect to dashboard if already authenticated
   useEffect(() => {
-    if (!loading && isAuthenticated && !justRegisteredRef.current) {
-      router.replace('/profile');
+    if (!loading && isAuthenticated) {
+      router.replace('/dashboard');
     }
   }, [loading, isAuthenticated, router]);
 
@@ -55,30 +47,16 @@ export default function SignupForm() {
     setEmailLoading(true);
     setError('');
     setSuccess('');
-    justRegisteredRef.current = false;
 
     const result = await APIBook.auth.registerWithEmail(data.email, data.password, data.displayName);
     
     if (result.success) {
-      // Mark as just-registered BEFORE any state/navigation changes so the
-      // isAuthenticated useEffect skips the /profile redirect.
-      justRegisteredRef.current = true;
-
-      // Dynamic success message based on email verification configuration
-      const message = AUTH_CONFIG.emailVerification.sendOnSignup
-        ? 'Account created successfully! Please check your email to verify your account.'
-        : 'Account created successfully! You can now sign in.';
-      
-      setSuccess(message);
+      // Firebase auto-signs the user in after registration.
+      // AuthContext will detect the new user, sync the session cookie,
+      // set isAuthenticated=true, and the useEffect above will redirect
+      // to /dashboard automatically.
+      setSuccess('Account created! Taking you to your dashboard...');
       form.reset();
-
-      // Sign out immediately — user must verify email then log in.
-      // This also ensures the session cookie is never set for an unverified
-      // account, preventing the protect-layout redirect loop.
-      await APIBook.auth.signOut();
-
-      // Redirect to login after 3 seconds
-      setTimeout(() => router.push('/login'), 3000);
     } else {
       setError(result.error || 'Signup failed');
     }
@@ -94,7 +72,7 @@ export default function SignupForm() {
     const result = await APIBook.auth.loginWithGoogle();
     
     if (result.success) {
-      router.push('/profile');
+      router.replace('/dashboard');
     } else {
       setError(result.error || 'Google signup failed');
     }

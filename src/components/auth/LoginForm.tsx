@@ -45,7 +45,7 @@ export default function LoginForm() {
   // before onAuthStateChanged has fired for the first time.
   useEffect(() => {
     if (!loading && isAuthenticated && !isRedirectingRef.current) {
-      const redirectTo = searchParams.get('redirect') || '/profile';
+      const redirectTo = searchParams.get('redirect') || '/dashboard';
       router.replace(redirectTo);
     }
   }, [loading, isAuthenticated, router, searchParams]);
@@ -66,7 +66,7 @@ export default function LoginForm() {
     
     if (result.success) {
       isRedirectingRef.current = true;
-      const redirectTo = searchParams.get('redirect') || '/profile';
+      const redirectTo = searchParams.get('redirect') || '/dashboard';
       router.replace(redirectTo);
     } else {
       setError(result.error || 'Login failed');
@@ -83,7 +83,7 @@ export default function LoginForm() {
     
     if (result.success) {
       isRedirectingRef.current = true;
-      const redirectTo = searchParams.get('redirect') || '/profile';
+      const redirectTo = searchParams.get('redirect') || '/dashboard';
       router.replace(redirectTo);
     } else {
       setError(result.error || 'Google login failed');

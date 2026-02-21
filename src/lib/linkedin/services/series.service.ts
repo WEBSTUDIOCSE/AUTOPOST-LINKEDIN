@@ -6,21 +6,10 @@
  * or skipped, and auto-completes the series when the queue is exhausted.
  */
 
-import {
-  collection,
-  doc,
-  addDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  orderBy,
-  serverTimestamp,
-  type Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import 'server-only';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { firebaseHandler, firebaseVoidHandler } from '@/lib/firebase/handler';
 import { SERIES_COLLECTION } from '../collections';
 import type { Series, SeriesStatus, SeriesTopic } from '../types';
@@ -28,7 +17,7 @@ import type { Series, SeriesStatus, SeriesTopic } from '../types';
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Convert Firestore timestamp fields to JS Dates */
-function toSeries(id: string, data: Record<string, unknown>): Series {
+function toSeries(id: string, data: FirebaseFirestore.DocumentData): Series {
   return {
     ...data,
     id,
@@ -51,7 +40,8 @@ export const SeriesService = {
     order?: number;
   }) {
     return firebaseHandler(async () => {
-      const ref = await addDoc(collection(db, SERIES_COLLECTION), {
+      const db = getAdminDb();
+      const ref = await db.collection(SERIES_COLLECTION).add({
         userId,
         title: data.title,
         category: data.category,
@@ -59,8 +49,8 @@ export const SeriesService = {
         currentIndex: 0,
         status: 'active' as SeriesStatus,
         order: data.order ?? 0,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
       return ref.id;
     }, 'SeriesService.create');
@@ -69,21 +59,21 @@ export const SeriesService = {
   /** Get a single series by ID */
   getById(seriesId: string) {
     return firebaseHandler(async () => {
-      const snap = await getDoc(doc(db, SERIES_COLLECTION, seriesId));
-      if (!snap.exists()) return null;
-      return toSeries(snap.id, snap.data());
+      const db = getAdminDb();
+      const snap = await db.collection(SERIES_COLLECTION).doc(seriesId).get();
+      if (!snap.exists) return null;
+      return toSeries(snap.id, snap.data()!);
     }, 'SeriesService.getById');
   },
 
   /** Get all series for a user, ordered by priority */
   getAllByUser(userId: string) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, SERIES_COLLECTION),
-        where('userId', '==', userId),
-        orderBy('order', 'asc'),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(SERIES_COLLECTION)
+        .where('userId', '==', userId)
+        .orderBy('order', 'asc')
+        .get();
       return snap.docs.map(d => toSeries(d.id, d.data()));
     }, 'SeriesService.getAllByUser');
   },
@@ -91,13 +81,12 @@ export const SeriesService = {
   /** Get the currently active series (lowest order, status = 'active') */
   getActiveSeries(userId: string) {
     return firebaseHandler(async () => {
-      const q = query(
-        collection(db, SERIES_COLLECTION),
-        where('userId', '==', userId),
-        where('status', '==', 'active'),
-        orderBy('order', 'asc'),
-      );
-      const snap = await getDocs(q);
+      const db = getAdminDb();
+      const snap = await db.collection(SERIES_COLLECTION)
+        .where('userId', '==', userId)
+        .where('status', '==', 'active')
+        .orderBy('order', 'asc')
+        .get();
       if (snap.empty) return null;
       const d = snap.docs[0];
       return toSeries(d.id, d.data());
@@ -107,9 +96,10 @@ export const SeriesService = {
   /** Update series fields (title, category, topicQueue, status, order) */
   update(seriesId: string, data: Partial<Pick<Series, 'title' | 'category' | 'topicQueue' | 'status' | 'order'>>) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, SERIES_COLLECTION, seriesId), {
+      const db = getAdminDb();
+      await db.collection(SERIES_COLLECTION).doc(seriesId).update({
         ...data,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'SeriesService.update');
   },
@@ -120,22 +110,24 @@ export const SeriesService = {
    */
   advanceIndex(seriesId: string, currentLength: number, currentIndex: number) {
     return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
       const nextIndex = currentIndex + 1;
       const updates: Record<string, unknown> = {
         currentIndex: nextIndex,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       };
       if (nextIndex >= currentLength) {
         updates.status = 'completed';
       }
-      await updateDoc(doc(db, SERIES_COLLECTION, seriesId), updates);
+      await db.collection(SERIES_COLLECTION).doc(seriesId).update(updates);
     }, 'SeriesService.advanceIndex');
   },
 
   /** Delete a series (does NOT delete associated posts) */
   delete(seriesId: string) {
     return firebaseVoidHandler(async () => {
-      await deleteDoc(doc(db, SERIES_COLLECTION, seriesId));
+      const db = getAdminDb();
+      await db.collection(SERIES_COLLECTION).doc(seriesId).delete();
     }, 'SeriesService.delete');
   },
 };

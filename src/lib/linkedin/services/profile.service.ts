@@ -8,15 +8,10 @@
  * - AI persona (writing style description)
  */
 
-import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  serverTimestamp,
-  type Timestamp,
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
+import 'server-only';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase/admin';
 import { firebaseHandler, firebaseVoidHandler } from '@/lib/firebase/handler';
 import { PROFILES_COLLECTION } from '../collections';
 import type { AutoposterProfile, PostingSchedule } from '../types';
@@ -35,7 +30,7 @@ const DEFAULT_SCHEDULE: PostingSchedule = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function toProfile(data: Record<string, unknown>): AutoposterProfile {
+function toProfile(data: FirebaseFirestore.DocumentData): AutoposterProfile {
   return {
     ...data,
     linkedinTokenExpiry: (data.linkedinTokenExpiry as Timestamp)?.toDate?.() ?? undefined,
@@ -53,9 +48,10 @@ export const ProfileService = {
    */
   get(userId: string) {
     return firebaseHandler(async () => {
-      const snap = await getDoc(doc(db, PROFILES_COLLECTION, userId));
-      if (!snap.exists()) return null;
-      return toProfile(snap.data());
+      const db = getAdminDb();
+      const snap = await db.collection(PROFILES_COLLECTION).doc(userId).get();
+      if (!snap.exists) return null;
+      return toProfile(snap.data()!);
     }, 'ProfileService.get');
   },
 
@@ -65,7 +61,8 @@ export const ProfileService = {
    */
   create(userId: string, data?: Partial<AutoposterProfile>) {
     return firebaseVoidHandler(async () => {
-      await setDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).set({
         userId,
         linkedinAccessToken: null,
         linkedinRefreshToken: null,
@@ -79,8 +76,8 @@ export const ProfileService = {
         draftGenerationHour: 21,
         reviewDeadlineHour: 3,
         ...data,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.create');
   },
@@ -88,9 +85,10 @@ export const ProfileService = {
   /** Update specific fields on the profile */
   update(userId: string, data: Partial<Omit<AutoposterProfile, 'userId' | 'createdAt'>>) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         ...data,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.update');
   },
@@ -105,13 +103,14 @@ export const ProfileService = {
     memberUrn: string;
   }) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         linkedinAccessToken: tokens.accessToken,
         linkedinRefreshToken: tokens.refreshToken ?? null,
         linkedinTokenExpiry: new Date(Date.now() + tokens.expiresIn * 1000),
         linkedinMemberUrn: tokens.memberUrn,
         linkedinConnected: true,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.setLinkedInTokens');
   },
@@ -119,13 +118,14 @@ export const ProfileService = {
   /** Clear LinkedIn connection */
   disconnectLinkedIn(userId: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         linkedinAccessToken: null,
         linkedinRefreshToken: null,
         linkedinTokenExpiry: null,
         linkedinMemberUrn: null,
         linkedinConnected: false,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.disconnectLinkedIn');
   },
@@ -135,9 +135,10 @@ export const ProfileService = {
   /** Update the FCM device token (called after requestPermission) */
   setFcmToken(userId: string, fcmToken: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         fcmToken,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.setFcmToken');
   },
@@ -147,21 +148,23 @@ export const ProfileService = {
   /** Update the posting schedule */
   updateSchedule(userId: string, schedule: PostingSchedule) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         postingSchedule: schedule,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.updateSchedule');
   },
 
-  // ── Persona ──────────────────────────────────────────────────────────────
+  // ── Persona ──────────────────────────────────────────────────────────────────────
 
   /** Update the AI writing persona */
   updatePersona(userId: string, persona: string) {
     return firebaseVoidHandler(async () => {
-      await updateDoc(doc(db, PROFILES_COLLECTION, userId), {
+      const db = getAdminDb();
+      await db.collection(PROFILES_COLLECTION).doc(userId).update({
         persona,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'ProfileService.updatePersona');
   },

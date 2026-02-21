@@ -25,9 +25,9 @@ export interface AIEnvironmentConfig {
 }
 
 /**
- * Environment names
+ * Environment names — production only
  */
-export type Environment = 'UAT' | 'PROD';
+export type Environment = 'PROD';
 
 /**
  * Environment configuration

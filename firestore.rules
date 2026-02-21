@@ -1,23 +1,28 @@
 rules_version = '2';
 
 /**
- * Firestore Security Rules
+ * Firestore Security Rules — Production Only
  *
  * Deploy with: firebase deploy --only firestore:rules
  *
  * Strategy:
- *   - Users can only read and write their own document (owner-only).
- *   - The document ID must match the authenticated user's UID.
+ *   - Users can only read and write their own documents (owner-only).
+ *   - The document ID must match the authenticated user's UID where applicable.
+ *   - userId field is validated on create to prevent spoofing.
  *   - All other paths are denied by default (deny-first model).
  *
- * Environment collections:
- *   - prod_users → production
- *   - uat_users  → UAT / staging
+ * Collections (all production — no UAT environment):
+ *   prod_users                — user profiles
+ *   payments                  — payment records
+ *   prod_series               — LinkedIn post series
+ *   prod_posts                — AI drafts through to published posts
+ *   prod_ideas                — user idea bank
+ *   prod_autoposter_profiles  — LinkedIn tokens, schedule, persona
  */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper Functions ────────────────────────────────────────────────────
+    // ── Helper Functions ─────────────────────────────────────────────────────
 
     // Returns true when the caller is authenticated
     function isAuthenticated() {
@@ -29,25 +34,8 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // ── Production User Documents ───────────────────────────────────────────
+    // ── User Profiles ────────────────────────────────────────────────────────
     match /prod_users/{userId} {
-      // Owner can read their own profile
-      allow read: if isOwner(userId);
-
-      // Owner can create their own document — no extra fields beyond allowed set
-      allow create: if isOwner(userId)
-        && request.resource.data.uid == request.auth.uid;
-
-      // Owner can update their own document — cannot change the uid field
-      allow update: if isOwner(userId)
-        && request.resource.data.uid == resource.data.uid;
-
-      // Owner can delete their own document
-      allow delete: if isOwner(userId);
-    }
-
-    // ── UAT / Staging User Documents ────────────────────────────────────────
-    match /uat_users/{userId} {
       allow read:   if isOwner(userId);
       allow create: if isOwner(userId)
         && request.resource.data.uid == request.auth.uid;
@@ -56,8 +44,15 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
-    // ── Autoposter: Series ──────────────────────────────────────────────────
-    // Users can CRUD their own series documents (matched by userId field).
+    // ── Payments ─────────────────────────────────────────────────────────────
+    // Users can read their own payment records; writes are server-only (Admin SDK)
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow write: if false;
+    }
+
+    // ── Autoposter: Series ───────────────────────────────────────────────────
     match /prod_series/{seriesId} {
       allow read, delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
@@ -67,17 +62,8 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId;
     }
-    match /uat_series/{seriesId} {
-      allow read, delete: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
-    }
 
-    // ── Autoposter: Posts ───────────────────────────────────────────────────
+    // ── Autoposter: Posts ────────────────────────────────────────────────────
     match /prod_posts/{postId} {
       allow read, delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
@@ -87,17 +73,8 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid
         && request.resource.data.userId == resource.data.userId;
     }
-    match /uat_posts/{postId} {
-      allow read, delete: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-        && resource.data.userId == request.auth.uid
-        && request.resource.data.userId == resource.data.userId;
-    }
 
-    // ── Autoposter: Ideas ───────────────────────────────────────────────────
+    // ── Autoposter: Ideas ────────────────────────────────────────────────────
     match /prod_ideas/{ideaId} {
       allow read, delete: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
@@ -106,26 +83,14 @@ service cloud.firestore {
       allow update: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
     }
-    match /uat_ideas/{ideaId} {
-      allow read, delete: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated()
-        && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated()
-        && resource.data.userId == request.auth.uid;
-    }
 
-    // ── Autoposter: Profiles ────────────────────────────────────────────────
-    // Profile doc ID = userId, so we use isOwner()
+    // ── Autoposter: Profiles (LinkedIn tokens, schedule, persona) ────────────
+    // Doc ID = userId so we use isOwner()
     match /prod_autoposter_profiles/{userId} {
-      allow read, create, update, delete: if isOwner(userId);
-    }
-    match /uat_autoposter_profiles/{userId} {
       allow read, create, update, delete: if isOwner(userId);
     }
 
     // ── Default Deny ─────────────────────────────────────────────────────────
-    // Explicitly deny access to all other collections and documents.
     match /{document=**} {
       allow read, write: if false;
     }

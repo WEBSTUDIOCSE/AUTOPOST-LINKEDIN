@@ -1,0 +1,22 @@
+rules_version = '2';
+
+/**
+ * Firebase Storage Security Rules
+ *
+ * Deploy with: firebase deploy --only storage
+ *
+ * Strategy:
+ *   No client-side file uploads are used in LinkedIn Autoposter.
+ *   All media handling (if any) is done server-side via Admin SDK,
+ *   which bypasses these rules entirely.
+ *
+ *   Deny all client reads and writes as a blanket security measure.
+ *   Revisit if avatar uploads or image attachments are added.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

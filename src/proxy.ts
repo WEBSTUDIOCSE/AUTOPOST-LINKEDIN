@@ -28,7 +28,7 @@ const AUTH_ROUTES = [
 
 // Constants for better performance
 const LOGIN_URL = '/login';
-const DEFAULT_REDIRECT = '/profile';
+const DEFAULT_REDIRECT = '/dashboard';
 
 /**
  * Sanitise the ?redirect= parameter to prevent open-redirect attacks.
