@@ -56,6 +56,74 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    // ── Autoposter: Series ──────────────────────────────────────────────────
+    // Users can CRUD their own series documents (matched by userId field).
+    match /prod_series/{seriesId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+    }
+    match /uat_series/{seriesId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    // ── Autoposter: Posts ───────────────────────────────────────────────────
+    match /prod_posts/{postId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+    }
+    match /uat_posts/{postId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    // ── Autoposter: Ideas ───────────────────────────────────────────────────
+    match /prod_ideas/{ideaId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+    match /uat_ideas/{ideaId} {
+      allow read, delete: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid;
+    }
+
+    // ── Autoposter: Profiles ────────────────────────────────────────────────
+    // Profile doc ID = userId, so we use isOwner()
+    match /prod_autoposter_profiles/{userId} {
+      allow read, create, update, delete: if isOwner(userId);
+    }
+    match /uat_autoposter_profiles/{userId} {
+      allow read, create, update, delete: if isOwner(userId);
+    }
+
     // ── Default Deny ─────────────────────────────────────────────────────────
     // Explicitly deny access to all other collections and documents.
     match /{document=**} {
