@@ -1,5 +1,6 @@
 ﻿import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/server';
+import AppShell from '@/components/layout/AppShell';
 import type { Metadata } from 'next';
 
 // Force dynamic rendering since we check authentication cookies
@@ -22,5 +23,5 @@ export default async function ProtectedLayout({
     redirect('/login');
   }
 
-  return <>{children}</>;
+  return <AppShell>{children}</AppShell>;
 }
