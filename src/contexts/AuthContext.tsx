@@ -72,10 +72,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for authentication state changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
-      setLoading(false);
 
-      // Sync session cookie
+      // Sync session cookie FIRST — setLoading(false) is deliberately
+      // called after the await so that no component ever sees
+      // loading=false before the httpOnly cookie is written.
+      // Without this ordering, redirects to protected routes race
+      // ahead of the cookie and the server-side layout bounces the
+      // user back to /login, creating a redirect loop.
       await syncSession(firebaseUser);
+      setLoading(false);
 
       // Clear any previous refresh timer
       if (refreshTimerRef.current) {
