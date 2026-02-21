@@ -54,7 +54,17 @@ export const PostService = {
     return firebaseHandler(async () => {
       const db = getAdminDb();
       const ref = await db.collection(POSTS_COLLECTION).add({
-        ...data,
+        // Explicit field mapping — no spread, so undefined fields become null
+        // and never hit Firestore's "Cannot encode type 'undefined'" error
+        userId: data.userId,
+        topic: data.topic,
+        content: data.content,
+        scheduledFor: data.scheduledFor,
+        reviewDeadline: data.reviewDeadline,
+        seriesId: data.seriesId ?? null,
+        topicIndex: data.topicIndex ?? null,
+        previousPostSummary: data.previousPostSummary ?? null,
+        inputPrompt: data.inputPrompt ?? null,
         mediaType: data.mediaType ?? 'text',
         mediaUrl: data.mediaUrl ?? null,
         mediaMimeType: data.mediaMimeType ?? null,
