@@ -193,7 +193,8 @@ export class GeminiAdapter implements IAIAdapter {
   // Two paths:
   //   1) Nano Banana (gemini-2.5-flash-image, gemini-3-pro-image-preview)
   //      → generateContent with responseModalities: ['Image', 'Text']
-  //      → Supports imageConfig { aspectRatio, imageSize, personGeneration }
+  //      → Supports imageConfig { aspectRatio, imageSize }
+  //      → personGeneration NOT supported — enforced via prompt text instead
   //   2) Imagen (imagen-4.0-generate-001, imagen-4.0-ultra-*, imagen-4.0-fast-*)
   //      → generateImages (standalone image generation pipeline)
   //      → Supports numberOfImages, aspectRatio, negativePrompt, imageSize, etc.
@@ -233,20 +234,30 @@ export class GeminiAdapter implements IAIAdapter {
     model: string,
     request: ImageGenerationRequest,
   ): Promise<ImageGenerationResponse> {
-    // Build imageConfig for aspect ratio, size, and person generation
-    const hasImageConfig = request.aspectRatio || request.imageSize || request.personGeneration;
+    // Build imageConfig for aspect ratio and size only.
+    // NOTE: personGeneration is NOT supported in the Nano Banana
+    // (generateContent) path — it throws "personGeneration parameter is
+    // not supported". We enforce the constraint via the prompt text instead.
+    const hasImageConfig = request.aspectRatio || request.imageSize;
     const imageConfig = hasImageConfig
       ? {
           ...(request.aspectRatio && { aspectRatio: request.aspectRatio }),
           ...(request.imageSize && { imageSize: request.imageSize }),
-          ...(request.personGeneration && { personGeneration: request.personGeneration }),
         }
       : undefined;
+
+    // Prepend anti-person/nature constraint directly into the prompt for
+    // Nano Banana models since they lack personGeneration config support.
+    const safetyPrefix =
+      'STRICT RULES: Do NOT generate any humans, people, faces, silhouettes, body parts, ' +
+      'nature scenes, landscapes, oceans, mountains, or skies. ' +
+      'Generate ONLY a tech infographic/diagram with text overlays.\n\n';
+    const augmentedPrompt = `${safetyPrefix}${request.prompt}`;
 
     const response = await this.withTimeout(
       this.client.models.generateContent({
         model,
-        contents: request.prompt,
+        contents: augmentedPrompt,
         config: {
           responseModalities: ['Image', 'Text'],
           ...(imageConfig && { imageConfig }),

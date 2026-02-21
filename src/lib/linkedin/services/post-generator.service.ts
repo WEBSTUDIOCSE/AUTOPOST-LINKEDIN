@@ -138,7 +138,6 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         negativePrompt: context.negativePrompt
           ? `${context.negativePrompt}, ${DEFAULT_IMAGE_NEGATIVE_PROMPT}`
           : DEFAULT_IMAGE_NEGATIVE_PROMPT,
-        personGeneration: 'dont_allow',
       });
 
       if (imageResult.images.length > 0) {
