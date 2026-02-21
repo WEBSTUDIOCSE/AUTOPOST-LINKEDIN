@@ -213,7 +213,7 @@ export async function createLinkedInPost(opts: CreatePostOptions): Promise<strin
       Authorization: `Bearer ${opts.accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202402',
+      'LinkedIn-Version': '202501',
     },
     body: JSON.stringify(payload),
   });
@@ -269,7 +269,7 @@ export async function uploadImageToLinkedIn(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202402',
+      'LinkedIn-Version': '202501',
     },
     body: JSON.stringify({
       initializeUploadRequest: {
@@ -345,7 +345,7 @@ export async function uploadVideoToLinkedIn(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202402',
+      'LinkedIn-Version': '202501',
     },
     body: JSON.stringify({
       initializeUploadRequest: {
@@ -398,7 +398,7 @@ export async function uploadVideoToLinkedIn(
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202402',
+      'LinkedIn-Version': '202501',
     },
     body: JSON.stringify({
       finalizeUploadRequest: {
