@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,20 +17,24 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Separator } from '@/components/ui/separator';
 import { Mail, User, AlertCircle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect } from 'react';
 
 export default function SignupForm() {
   const [emailLoading, setEmailLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  
+  // Tracks whether we just completed a registration — prevents the
+  // isAuthenticated watcher from redirecting to /profile before the
+  // session cookie is established (which would cause a redirect loop).
+  const justRegisteredRef = useRef(false);
+
   const router = useRouter();
   const { isAuthenticated } = useAuth();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated (skip if we just registered —
+  // in that case we sign out and redirect to /login instead)
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !justRegisteredRef.current) {
       router.push('/profile');
     }
   }, [isAuthenticated, router]);
@@ -49,10 +53,15 @@ export default function SignupForm() {
     setEmailLoading(true);
     setError('');
     setSuccess('');
+    justRegisteredRef.current = false;
 
     const result = await APIBook.auth.registerWithEmail(data.email, data.password, data.displayName);
     
     if (result.success) {
+      // Mark as just-registered BEFORE any state/navigation changes so the
+      // isAuthenticated useEffect skips the /profile redirect.
+      justRegisteredRef.current = true;
+
       // Dynamic success message based on email verification configuration
       const message = AUTH_CONFIG.emailVerification.sendOnSignup
         ? 'Account created successfully! Please check your email to verify your account.'
@@ -60,6 +69,12 @@ export default function SignupForm() {
       
       setSuccess(message);
       form.reset();
+
+      // Sign out immediately — user must verify email then log in.
+      // This also ensures the session cookie is never set for an unverified
+      // account, preventing the protect-layout redirect loop.
+      await APIBook.auth.signOut();
+
       // Redirect to login after 3 seconds
       setTimeout(() => router.push('/login'), 3000);
     } else {
