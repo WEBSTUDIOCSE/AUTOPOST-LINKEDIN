@@ -1230,7 +1230,8 @@ export default function PostsClient() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

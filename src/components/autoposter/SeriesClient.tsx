@@ -416,7 +416,8 @@ export default function SeriesClient() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   useEffect(() => {
     fetchSeries();

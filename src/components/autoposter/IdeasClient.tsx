@@ -134,7 +134,8 @@ export default function IdeasClient() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   useEffect(() => {
     fetchIdeas();
