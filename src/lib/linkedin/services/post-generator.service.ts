@@ -117,11 +117,16 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
       const imgPromptResult = await adapter.generateText({
         prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'image'),
         systemInstruction: PromptService.getMediaPromptInstruction('image'),
-        temperature: 0.7,
+        temperature: 0.5,
         maxTokens: 200,
       });
 
-      const imagePrompt = imgPromptResult.text.trim();
+      // Reinforce the topic directly in the image prompt to prevent drift.
+      // The text model sometimes outputs generic prompts; prepending the topic
+      // anchors the image model to the correct subject.
+      const rawImagePrompt = imgPromptResult.text.trim();
+      const topicAnchor = `Create a professional tech infographic about: "${context.topic}". `;
+      const imagePrompt = `${topicAnchor}${rawImagePrompt}`;
       const defaultCfg = PromptService.getImageConfig();
 
       const DEFAULT_IMAGE_NEGATIVE_PROMPT =

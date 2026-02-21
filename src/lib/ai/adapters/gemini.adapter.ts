@@ -246,13 +246,13 @@ export class GeminiAdapter implements IAIAdapter {
         }
       : undefined;
 
-    // Prepend anti-person/nature constraint directly into the prompt for
-    // Nano Banana models since they lack personGeneration config support.
-    const safetyPrefix =
-      'STRICT RULES: Do NOT generate any humans, people, faces, silhouettes, body parts, ' +
-      'nature scenes, landscapes, oceans, mountains, or skies. ' +
-      'Generate ONLY a tech infographic/diagram with text overlays.\n\n';
-    const augmentedPrompt = `${safetyPrefix}${request.prompt}`;
+    // Reinforce topic relevance and content constraints for Nano Banana models
+    // since they lack personGeneration config support.
+    const constraintSuffix =
+      '\n\nIMPORTANT CONSTRAINTS: No humans, people, faces, silhouettes, or body parts. ' +
+      'No nature, landscapes, oceans, mountains, or sky. ' +
+      'The image must be a flat-design tech infographic with text overlays matching the topic above.';
+    const augmentedPrompt = `${request.prompt}${constraintSuffix}`;
 
     const response = await this.withTimeout(
       this.client.models.generateContent({

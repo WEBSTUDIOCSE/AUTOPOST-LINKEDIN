@@ -194,6 +194,15 @@ export const PromptService = {
    * a relevant image/video prompt.
    */
   buildMediaUserPrompt(topic: string, postContent: string, mediaType: 'image' | 'video' = 'image'): string {
+    if (mediaType === 'image') {
+      return (
+        `TOPIC (the image MUST be about this exact topic): "${topic}"\n\n` +
+        `LINKEDIN POST TEXT:\n${postContent}\n\n` +
+        `Generate the image prompt now. The prompt MUST reference "${topic}" by name ` +
+        `and include visual elements (logos, icons, diagrams, text overlays) specific to this topic. ` +
+        `Do NOT produce a generic or abstract image.`
+      );
+    }
     return `TOPIC: ${topic}\n\nLINKEDIN POST TEXT:\n${postContent}\n\nGenerate the ${mediaType} prompt now.`;
   },
 
