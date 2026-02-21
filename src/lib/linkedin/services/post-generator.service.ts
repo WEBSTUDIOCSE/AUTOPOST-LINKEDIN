@@ -124,12 +124,21 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
       const imagePrompt = imgPromptResult.text.trim();
       const defaultCfg = PromptService.getImageConfig();
 
+      const DEFAULT_IMAGE_NEGATIVE_PROMPT =
+        'person, people, human, man, woman, silhouette, body, face, hands, crowd, ' +
+        'nature, landscape, ocean, sea, river, mountain, cliff, forest, sky, clouds, ' +
+        'sunset, sunrise, beach, grass, trees, inspirational photo, stock photo, ' +
+        'photorealistic human, portrait, fashion, lifestyle';
+
       const imageResult = await adapter.generateImage({
         prompt: imagePrompt,
         aspectRatio: context.aspectRatio ?? defaultCfg.aspectRatio,
         numberOfImages: context.numberOfImages ?? defaultCfg.numberOfImages,
         imageSize: context.imageSize,
-        negativePrompt: context.negativePrompt,
+        negativePrompt: context.negativePrompt
+          ? `${context.negativePrompt}, ${DEFAULT_IMAGE_NEGATIVE_PROMPT}`
+          : DEFAULT_IMAGE_NEGATIVE_PROMPT,
+        personGeneration: 'dont_allow',
       });
 
       if (imageResult.images.length > 0) {
