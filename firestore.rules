@@ -1,0 +1,65 @@
+rules_version = '2';
+
+/**
+ * Firestore Security Rules
+ *
+ * Deploy with: firebase deploy --only firestore:rules
+ *
+ * Strategy:
+ *   - Users can only read and write their own document (owner-only).
+ *   - The document ID must match the authenticated user's UID.
+ *   - All other paths are denied by default (deny-first model).
+ *
+ * Environment collections:
+ *   - prod_users → production
+ *   - uat_users  → UAT / staging
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ────────────────────────────────────────────────────
+
+    // Returns true when the caller is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Returns true when the caller owns the document (UID matches doc ID)
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── Production User Documents ───────────────────────────────────────────
+    match /prod_users/{userId} {
+      // Owner can read their own profile
+      allow read: if isOwner(userId);
+
+      // Owner can create their own document — no extra fields beyond allowed set
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == request.auth.uid;
+
+      // Owner can update their own document — cannot change the uid field
+      allow update: if isOwner(userId)
+        && request.resource.data.uid == resource.data.uid;
+
+      // Owner can delete their own document
+      allow delete: if isOwner(userId);
+    }
+
+    // ── UAT / Staging User Documents ────────────────────────────────────────
+    match /uat_users/{userId} {
+      allow read:   if isOwner(userId);
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if isOwner(userId)
+        && request.resource.data.uid == resource.data.uid;
+      allow delete: if isOwner(userId);
+    }
+
+    // ── Default Deny ─────────────────────────────────────────────────────────
+    // Explicitly deny access to all other collections and documents.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

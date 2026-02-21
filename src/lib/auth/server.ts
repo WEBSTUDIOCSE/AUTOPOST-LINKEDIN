@@ -15,7 +15,7 @@
  */
 
 import { cookies } from 'next/headers';
-import { cache } from 'react';
+import { cache, experimental_taintUniqueValue } from 'react';
 import { getAdminAuth } from '@/lib/firebase/admin';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -39,7 +39,10 @@ export const AUTH_COOKIE_OPTIONS = {
   secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/',
-  maxAge: 60 * 60 * 24 * 7, // 7 days
+  // 55 minutes — slightly less than the 60-minute token expiry so that
+  // the cookie never holds a stale token for long. AuthContext refreshes
+  // the token (and re-sets the cookie) every 50 minutes while the app is open.
+  maxAge: 55 * 60,
 };
 
 // ─── Token Verification ──────────────────────────────────────────────────────
@@ -89,6 +92,15 @@ export const getCurrentUser = cache(async (): Promise<ServerUser | null> => {
     if (!token) {
       return null;
     }
+
+    // Taint the raw token value so React will throw a build-time error if
+    // any Server Component accidentally passes it to a Client Component.
+    // Requires experimental.taint = true in next.config.ts.
+    experimental_taintUniqueValue(
+      'Firebase ID token must never be passed to a Client Component.',
+      cookieStore,
+      token,
+    );
 
     // Cryptographically verify the token with Firebase Admin SDK
     return await verifyIdToken(token);

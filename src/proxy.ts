@@ -27,6 +27,22 @@ const LOGIN_URL = '/login';
 const DEFAULT_REDIRECT = '/profile';
 
 /**
+ * Sanitise the ?redirect= parameter to prevent open-redirect attacks.
+ *
+ * Only relative paths that begin with a single '/' are allowed.
+ * Protocol-relative URLs (//evil.com), absolute URLs, and empty values
+ * all fall back to the DEFAULT_REDIRECT.
+ */
+function sanitizeRedirect(redirect: string | null): string {
+  if (!redirect) return DEFAULT_REDIRECT;
+  // Must start with '/' but NOT with '//' (protocol-relative URL)
+  if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+    return redirect;
+  }
+  return DEFAULT_REDIRECT;
+}
+
+/**
  * Check if user is authenticated based on cookies.
  * Only the httpOnly firebaseAuthToken cookie is used — the server
  * verifies it cryptographically via Firebase Admin SDK on every request.
@@ -74,13 +90,9 @@ export function proxy(request: NextRequest) {
   
   // Redirect authenticated users from auth routes to profile
   if (isAuthRoute && isUserAuthenticated) {
-    // Check if there's a redirect parameter
     const redirectParam = request.nextUrl.searchParams.get('redirect');
-    const redirectUrl = new URL(
-      redirectParam && !redirectParam.startsWith('/login') ? redirectParam : DEFAULT_REDIRECT,
-      request.url
-    );
-    
+    const safePath = sanitizeRedirect(redirectParam);
+    const redirectUrl = new URL(safePath, request.url);
     return NextResponse.redirect(redirectUrl);
   }
   

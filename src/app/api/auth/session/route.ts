@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAdminAuth } from '@/lib/firebase/admin';
 import { AUTH_TOKEN_COOKIE, AUTH_COOKIE_OPTIONS } from '@/lib/auth/server';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 // ─── CSRF Helpers ────────────────────────────────────────────────────────────
 
@@ -52,7 +53,20 @@ function isValidOrigin(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   try {
-    // 1. CSRF check
+    // 1. Rate limiting — 15 token-set attempts per minute per IP
+    //    Prevents brute-force token stuffing and password-spray amplification.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      ?? request.headers.get('x-real-ip')
+      ?? 'unknown';
+    const { allowed, retryAfterSec } = checkRateLimit(`session:${ip}`, 15, 60_000);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(retryAfterSec) } },
+      );
+    }
+
+    // 2. CSRF check
     if (!isValidOrigin(request)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
