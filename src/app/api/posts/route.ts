@@ -193,15 +193,24 @@ export async function POST(request: NextRequest) {
       mediaPrompt: draft.media?.prompt,
     });
 
+    if (!result.success || !result.data) {
+      return NextResponse.json(
+        { error: result.error ?? 'Failed to save post to database' },
+        { status: 500 },
+      );
+    }
+
+    const postId = result.data;
+
     // For instant mode, auto-approve so user can publish right away
     if (mode === 'instant') {
-      await PostService.approve(result.data!);
+      await PostService.approve(postId);
     }
 
     return NextResponse.json({
       success: true,
       data: {
-        postId: result.data,
+        postId,
         content: draft.content,
         summary: draft.summary,
         media: draft.media,

@@ -110,7 +110,7 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
   if (mediaType === 'image' && adapter.supportsCapability('image')) {
     const imgPromptResult = await adapter.generateText({
-      prompt: PromptService.buildMediaUserPrompt(context.topic, content),
+      prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'image'),
       systemInstruction: PromptService.getMediaPromptInstruction('image'),
       temperature: 0.7,
       maxTokens: 200,
@@ -137,7 +137,7 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
     }
   } else if (mediaType === 'video' && adapter.supportsCapability('video')) {
     const vidPromptResult = await adapter.generateText({
-      prompt: PromptService.buildMediaUserPrompt(context.topic, content),
+      prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'video'),
       systemInstruction: PromptService.getMediaPromptInstruction('video'),
       temperature: 0.7,
       maxTokens: 200,

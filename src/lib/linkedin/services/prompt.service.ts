@@ -70,14 +70,18 @@ An AI-generated short video will be displayed below your text on LinkedIn.
 
 const IMAGE_PROMPT_INSTRUCTION = `You are an expert AI image prompt engineer. Given a LinkedIn post topic and text, generate a SINGLE image prompt for an AI image model.
 
+GOAL: Create an infographic-style, content-rich banner image — like a tech blog hero image, conference keynote slide, or educational carousel card. The image MUST visually communicate the core idea of the post.
+
 REQUIREMENTS:
-- 1–2 sentences, MAX 80 words
-- Style: Modern, clean, professional — think: tech blog hero image or conference keynote slide
-- Use abstract/conceptual visual metaphors, NOT literal depictions of people typing on laptops
-- Favor: gradient backgrounds, geometric shapes, minimalist flat design, isometric illustrations, flowing data visualizations
-- Color palette: Deep blues, purples, teals with accent highlights (amber, cyan, coral)
-- NEVER include: text/words/labels in the image, human faces, stock photo aesthetics, busy/cluttered compositions
-- The image should visually represent the CONCEPT, not the literal topic
+- 2–3 sentences, MAX 100 words
+- The image MUST contain readable text overlays: the topic title, key terms, bullet points, or short phrases that capture the main idea
+- Style: Bold typography-driven design, like a professional tech infographic, blog post banner, or social media educational card
+- Layout inspiration: tech comparison charts, concept breakdowns, "X vs Y" visuals, step-by-step diagrams, or bold quote cards
+- Use large, clear fonts for the headline/title. Support with icons, logos, or simple diagrams around the text.
+- Color palette: Dark or gradient backgrounds (deep navy, charcoal, dark purple) with high-contrast text (white, bright cyan, amber)
+- Include relevant visual elements: technology icons/logos, simple diagrams, arrows, numbered steps, or comparison layouts
+- NEVER generate: photorealistic humans, stock photo aesthetics, empty abstract shapes with no text, blurry/unreadable text
+- Think of images like: "Choosing Next.js over Angular, React, Vue" with logos and a comparison layout, or "5 Principles of Clean Code" with numbered bullet points on a dark background
 
 OUTPUT: Only the image prompt. No quotes, no prefix, no explanation.`;
 
@@ -181,8 +185,8 @@ export const PromptService = {
    * Feeds the topic + generated text content so the AI can create
    * a relevant image/video prompt.
    */
-  buildMediaUserPrompt(topic: string, postContent: string): string {
-    return `TOPIC: ${topic}\n\nLINKEDIN POST TEXT:\n${postContent}\n\nGenerate the ${topic.includes('video') ? 'video' : 'image'} prompt now.`;
+  buildMediaUserPrompt(topic: string, postContent: string, mediaType: 'image' | 'video' = 'image'): string {
+    return `TOPIC: ${topic}\n\nLINKEDIN POST TEXT:\n${postContent}\n\nGenerate the ${mediaType} prompt now.`;
   },
 
   // ── Summary Prompt ─────────────────────────────────────────────────────────
