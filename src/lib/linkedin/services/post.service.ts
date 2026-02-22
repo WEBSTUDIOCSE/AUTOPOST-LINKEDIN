@@ -252,14 +252,16 @@ export const PostService = {
     }, 'PostService.retry');
   },
 
-  /** Update post content (user editing the draft) */
-  updateContent(postId: string, editedContent: string) {
+  /** Update post content (user editing the draft or AI regeneration) */
+  updateContent(postId: string, editedContent: string, htmlContent?: string) {
     return firebaseVoidHandler(async () => {
       const db = getAdminDb();
-      await db.collection(POSTS_COLLECTION).doc(postId).update({
+      const update: Record<string, unknown> = {
         editedContent,
         updatedAt: FieldValue.serverTimestamp(),
-      });
+      };
+      if (htmlContent !== undefined) update.htmlContent = htmlContent;
+      await db.collection(POSTS_COLLECTION).doc(postId).update(update);
     }, 'PostService.updateContent');
   },
 

@@ -367,11 +367,12 @@ export async function PATCH(request: NextRequest) {
           post.content,
         );
 
-        await PostService.updateContent(postId, newDraft.content);
+        await PostService.updateContent(postId, newDraft.content, newDraft.htmlContent);
+
         return NextResponse.json({
           success: true,
           message: 'Post regenerated',
-          data: { content: newDraft.content },
+          data: { content: newDraft.content, htmlContent: newDraft.htmlContent },
         });
       }
 
@@ -419,7 +420,7 @@ export async function PATCH(request: NextRequest) {
             const mediaBuffer = await downloadMediaAsBuffer(post.mediaUrl);
 
             if (post.mediaType === 'image' || post.mediaType === 'html') {
-              // html posts produce a PNG via the Satori template pipeline — upload as image
+              // html posts: client captures HTML → PNG via html2canvas, uploaded to Storage first
               const { imageUrn } = await uploadImageToLinkedIn(
                 pubProfile.linkedinAccessToken,
                 pubProfile.linkedinMemberUrn,

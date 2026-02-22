@@ -91,7 +91,7 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
  */
 function HtmlPreview({ html, className }: { html: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
+  const [scale, setScale] = useState(0); // start at 0 to avoid flash
 
   useEffect(() => {
     const el = containerRef.current;
@@ -107,23 +107,25 @@ function HtmlPreview({ html, className }: { html: string; className?: string }) 
     <div
       ref={containerRef}
       className={cn('rounded-lg border overflow-hidden bg-black', className)}
-      style={{ height: Math.ceil(627 * scale), position: 'relative' }}
+      style={{ height: scale > 0 ? Math.ceil(627 * scale) : 300, position: 'relative' }}
     >
-      <iframe
-        srcDoc={html}
-        sandbox="allow-same-origin"
-        title="HTML Card Preview"
-        style={{
-          width: 1200,
-          height: 627,
-          border: 'none',
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-      />
+      {scale > 0 && (
+        <iframe
+          srcDoc={html}
+          sandbox="allow-same-origin"
+          title="HTML Card Preview"
+          style={{
+            width: 1200,
+            height: 627,
+            border: 'none',
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -663,7 +665,13 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
       // For HTML posts: convert the HTML to PNG on the client before publishing
       let imageBase64: string | undefined;
       if (form.mediaType === 'html' && draft.htmlContent) {
-        imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+        try {
+          imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+        } catch (captureErr) {
+          setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
+          setPublishing(false);
+          return;
+        }
       }
 
       const contentToPublish = editing ? editedContent : draft.content;
@@ -702,7 +710,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error ?? 'Regeneration failed');
-      setDraft(d => d ? ({ ...d, content: data.data.content }) : d);
+      setDraft(d => d ? ({ ...d, content: data.data.content, htmlContent: data.data.htmlContent ?? d.htmlContent }) : d);
       setEditedContent(data.data.content);
       setEditing(false);
     } catch (err) {
@@ -836,7 +844,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
 
 interface ScheduleDialogProps {
   seriesList: Series[];
-  onCreated: (draft: { postId: string; content: string; summary: string }) => void;
+  onCreated: (draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType }) => void;
 }
 
 function ScheduleDialog({ seriesList, onCreated }: ScheduleDialogProps) {
@@ -968,7 +976,7 @@ function ScheduleDialog({ seriesList, onCreated }: ScheduleDialogProps) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface DraftResultDialogProps {
-  draft: { postId: string; content: string; summary: string } | null;
+  draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType } | null;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -991,10 +999,22 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
     setBusy(true);
     setError('');
     try {
+      // For publish action on HTML posts: convert HTML→PNG client-side first
+      let imageBase64: string | undefined;
+      if (action === 'publish' && draft.mediaType === 'html' && draft.htmlContent) {
+        try {
+          imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+        } catch (captureErr) {
+          setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
+          setBusy(false);
+          return;
+        }
+      }
+
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: draft.postId, action, editedContent: c }),
+        body: JSON.stringify({ postId: draft.postId, action, editedContent: c, imageBase64 }),
       });
       const data = await res.json();
       if (!data.success && data.error) { setError(data.error); setBusy(false); return; }
@@ -1017,6 +1037,11 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
         </DialogHeader>
 
         <div className="space-y-3 py-2">
+          {/* HTML card preview */}
+          {draft.htmlContent && draft.mediaType === 'html' && (
+            <HtmlPreview html={draft.htmlContent} />
+          )}
+
           {draft.summary && (
             <p className="text-xs text-muted-foreground border rounded-md px-3 py-2 bg-secondary/30">
               <span className="font-medium">Summary:</span> {draft.summary}
@@ -1107,7 +1132,13 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
       // For publish action on HTML posts: convert HTML→PNG client-side first
       let imageBase64: string | undefined;
       if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
-        imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+        try {
+          imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+        } catch (captureErr) {
+          setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
+          setBusy(false);
+          return;
+        }
       }
 
       const res = await fetch('/api/posts', {
@@ -1264,7 +1295,13 @@ function PostCard({ post, onAction }: PostCardProps) {
       // For publish action on HTML posts: convert HTML→PNG client-side first
       let imageBase64: string | undefined;
       if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
-        imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+        try {
+          imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+        } catch (captureErr) {
+          setError(`Failed to capture HTML card: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
+          setBusy(false);
+          return;
+        }
       }
 
       const res = await fetch('/api/posts', {
@@ -1427,7 +1464,7 @@ export default function PostsClient() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newDraft, setNewDraft] = useState<{ postId: string; content: string; summary: string } | null>(null);
+  const [newDraft, setNewDraft] = useState<{ postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;

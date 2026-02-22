@@ -34,7 +34,7 @@ STRICT REQUIREMENTS:
    - Dark gradient backgrounds (deep navy, charcoal, dark purple)
    - Bold, clean typography with large headings (use system fonts: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)
    - Accent colors (cyan #06b6d4, amber #f59e0b, emerald #10b981, purple #8b5cf6) for highlights
-   - Rounded cards with subtle borders and glass-morphism effects (rgba backgrounds, backdrop-filter)
+   - Rounded cards with subtle borders and semi-transparent backgrounds (rgba). Do NOT use backdrop-filter or -webkit-backdrop-filter (they break in screenshot tools).
    - Emojis as icons where appropriate
    - Clear visual hierarchy: big title → sections → details
 5. Outer container: EXACTLY width:1200px; height:627px; overflow:hidden; margin:0; padding:0 on html and body too.
