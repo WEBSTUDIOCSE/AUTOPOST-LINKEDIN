@@ -47,9 +47,9 @@ const nextConfig: NextConfig = {
       // Images: self, data URIs and any https source (avatars, OG images)
       "img-src 'self' data: https:",
       // Fonts: only from the app itself
-      "font-src 'self'",
-      // Connections: Firebase, Google APIs, Firestore, Identity Toolkit
-      "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      // Connections: Firebase, Google APIs, Firestore, Identity Toolkit, Google Fonts
+      "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://fonts.gstatic.com",
       // Frames: Google (reCAPTCHA)
       "frame-src https://www.google.com",
       // Form submissions: self + PayU (both test and production)

@@ -42,6 +42,7 @@ import {
   FileText,
   Image as ImageIcon,
   Video,
+  Code2,
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -82,6 +83,7 @@ const MEDIA_ICONS = {
   text: FileText,
   image: ImageIcon,
   video: Video,
+  html: Code2,
 };
 
 // ── Stat Card ────────────────────────────────────────────────────────────────
@@ -166,8 +168,9 @@ function NextPostCard({
 
   const displayContent = post.editedContent ?? post.content;
   const isPending = post.status === 'pending_review';
-  const statusConfig = STATUS_CONFIG[post.status];
-  const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
+  const statusConfig = STATUS_CONFIG[post.status] ?? { label: post.status, variant: 'outline' as const };
+  const mediaType = (post.mediaType ?? 'text') as keyof typeof MEDIA_ICONS;
+  const MediaIcon = MEDIA_ICONS[mediaType] ?? MEDIA_ICONS.text;
 
   return (
     <Card>
@@ -232,8 +235,9 @@ function NextPostCard({
 // ── Series Mini Card ─────────────────────────────────────────────────────────
 
 function SeriesMiniCard({ series }: { series: Series }) {
-  const progress = series.topicQueue.length > 0
-    ? Math.round((series.currentIndex / series.topicQueue.length) * 100)
+  const queue = series.topicQueue ?? [];
+  const progress = queue.length > 0
+    ? Math.round((series.currentIndex / queue.length) * 100)
     : 0;
 
   return (
@@ -246,7 +250,7 @@ function SeriesMiniCard({ series }: { series: Series }) {
         <div className="flex items-center gap-2 mt-1">
           <Progress value={progress} className="h-1.5 flex-1" />
           <span className="text-[10px] text-muted-foreground shrink-0">
-            {series.currentIndex}/{series.topicQueue.length}
+            {series.currentIndex}/{queue.length}
           </span>
         </div>
       </div>
@@ -281,9 +285,10 @@ function IdeaMiniRow({ idea }: { idea: Idea }) {
 // ── Post Row ─────────────────────────────────────────────────────────────────
 
 function PostRow({ post }: { post: Post }) {
-  const statusConfig = STATUS_CONFIG[post.status];
+  const statusConfig = STATUS_CONFIG[post.status] ?? { label: post.status, variant: 'outline' as const };
   const isPublished = post.status === 'published';
-  const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
+  const mediaType = (post.mediaType ?? 'text') as keyof typeof MEDIA_ICONS;
+  const MediaIcon = MEDIA_ICONS[mediaType] ?? MEDIA_ICONS.text;
 
   return (
     <div className="flex items-center gap-3 py-3">

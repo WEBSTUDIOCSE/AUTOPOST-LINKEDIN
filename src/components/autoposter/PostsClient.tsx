@@ -10,12 +10,13 @@
  * Content type (text / image / video) determines what AI produces.
  */
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   CheckCircle2, XCircle, RotateCcw, PenLine, Send, Clock,
-  SkipForward, AlertCircle, Eye, FileText, Image as ImageIcon, Video,
+  SkipForward, AlertCircle, Eye, FileText, Image as ImageIcon, Video, Code2,
   Sparkles, Zap, CalendarClock, Loader2, Settings2, ChevronDown, ChevronUp,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -42,6 +43,7 @@ import {
 } from '@/components/ai-test/catalog';
 import type { TestProvider, TestCapability, ModelOption } from '@/components/ai-test/types';
 import type { Post, PostStatus, PostMediaType, Series } from '@/lib/linkedin/types';
+import html2canvas from 'html2canvas';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -77,7 +79,100 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
   text: FileText,
   image: ImageIcon,
   video: Video,
+  html: Code2,
 };
+
+// ── HTML Preview Component ────────────────────────────────────────────────────
+
+/**
+ * Render AI-generated HTML in a sandboxed iframe.
+ * The HTML is designed at 1200×627px. We scale it down to fit the container
+ * using CSS transform so the entire card is always visible.
+ */
+function HtmlPreview({ html, className }: { html: string; className?: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateScale = () => setScale(el.clientWidth / 1200);
+    updateScale();
+    const ro = new ResizeObserver(updateScale);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={cn('rounded-lg border overflow-hidden bg-black', className)}
+      style={{ height: Math.ceil(627 * scale), position: 'relative' }}
+    >
+      <iframe
+        srcDoc={html}
+        sandbox="allow-same-origin"
+        title="HTML Card Preview"
+        style={{
+          width: 1200,
+          height: 627,
+          border: 'none',
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Capture HTML content as a PNG base64 string using html2canvas.
+ * Creates a temporary hidden iframe, waits for it to load, captures, cleans up.
+ */
+async function captureHtmlAsBase64(html: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:627px;border:none;';
+    iframe.sandbox.add('allow-same-origin');
+    iframe.srcdoc = html;
+
+    iframe.onload = async () => {
+      try {
+        // Wait a tick for styles to apply
+        await new Promise(r => setTimeout(r, 200));
+
+        const body = iframe.contentDocument?.body;
+        if (!body) throw new Error('Cannot access iframe content');
+
+        const canvas = await html2canvas(body, {
+          width: 1200,
+          height: 627,
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#0f172a',
+        });
+
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64 = dataUrl.split(',')[1];
+        resolve(base64);
+      } catch (err) {
+        reject(err);
+      } finally {
+        document.body.removeChild(iframe);
+      }
+    };
+
+    iframe.onerror = () => {
+      document.body.removeChild(iframe);
+      reject(new Error('Failed to load HTML in iframe'));
+    };
+
+    document.body.appendChild(iframe);
+  });
+}
 
 // ── Content Type Selector ────────────────────────────────────────────────────
 
@@ -89,15 +184,16 @@ function ContentTypeSelector({
   disabled?: boolean;
 }) {
   const options: { value: PostMediaType; label: string; icon: React.ComponentType<{ className?: string }>; desc: string }[] = [
-    { value: 'text', label: 'Text', icon: FileText, desc: 'Text-only post' },
-    { value: 'image', label: 'Image', icon: ImageIcon, desc: 'AI generates an image' },
-    { value: 'video', label: 'Video', icon: Video, desc: 'AI generates a short video' },
+    { value: 'text',  label: 'Text',      icon: FileText,  desc: 'Text-only post' },
+    { value: 'image', label: 'Image',     icon: ImageIcon, desc: 'AI generates an image' },
+    { value: 'video', label: 'Video',     icon: Video,     desc: 'AI generates a short video' },
+    { value: 'html',  label: 'HTML Card', icon: Code2,     desc: 'Template card image' },
   ];
 
   return (
     <div className="space-y-1.5">
       <Label>Content Type</Label>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {options.map((opt) => {
           const Icon = opt.icon;
           const active = value === opt.value;
@@ -160,8 +256,9 @@ const DEFAULT_FORM: GenerationFormData = {
   durationSeconds: '', videoResolution: '', negativePrompt: '',
 };
 
-/** Map PostMediaType → TestCapability (they are the same strings but different types) */
+/** Map PostMediaType → TestCapability. HTML uses the text model pipeline. */
 function toCapability(mt: PostMediaType): TestCapability {
+  if (mt === 'html') return 'text';
   return mt as TestCapability;
 }
 
@@ -195,11 +292,12 @@ function GenerationFields({
   const handleMediaTypeChange = (mt: PostMediaType) => {
     setForm(f => {
       const cap = toCapability(mt);
-      const currentModel = mt === 'text' ? f.textModel : mt === 'image' ? f.imageModel : f.videoModel;
+      const isText = mt === 'text' || mt === 'html';
+      const currentModel = isText ? f.textModel : mt === 'image' ? f.imageModel : f.videoModel;
       const models = getModels(f.provider, cap);
       const valid = models.some(m => m.id === currentModel);
       if (!valid) {
-        const key = mt === 'text' ? 'textModel' : mt === 'image' ? 'imageModel' : 'videoModel';
+        const key = isText ? 'textModel' : mt === 'image' ? 'imageModel' : 'videoModel';
         return { ...f, mediaType: mt, [key]: getDefaultModel(f.provider, cap) };
       }
       return { ...f, mediaType: mt };
@@ -207,8 +305,8 @@ function GenerationFields({
   };
 
   /** The model list that corresponds to the currently active content type */
-  const activeModels = form.mediaType === 'text' ? textModels : form.mediaType === 'image' ? imageModels : videoModels;
-  const activeModelKey = form.mediaType === 'text' ? 'textModel' : form.mediaType === 'image' ? 'imageModel' : 'videoModel';
+  const activeModels = (form.mediaType === 'text' || form.mediaType === 'html') ? textModels : form.mediaType === 'image' ? imageModels : videoModels;
+  const activeModelKey = (form.mediaType === 'text' || form.mediaType === 'html') ? 'textModel' : form.mediaType === 'image' ? 'imageModel' : 'videoModel';
   const activeModelValue = form[activeModelKey as keyof GenerationFormData] as string;
   const selectedModelInfo = activeModels.find(m => m.id === activeModelValue);
 
@@ -505,7 +603,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
   const [form, setForm] = useState<GenerationFormData>({ ...DEFAULT_FORM });
 
   // After generation
-  const [draft, setDraft] = useState<{ postId: string; content: string; summary: string; mediaUrl?: string } | null>(null);
+  const [draft, setDraft] = useState<{ postId: string; content: string; summary: string; mediaUrl?: string; htmlContent?: string } | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [editing, setEditing] = useState(false);
 
@@ -545,6 +643,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
         content: data.data.content,
         summary: data.data.summary,
         mediaUrl: data.data.media?.url,
+        htmlContent: data.data.htmlContent,
       });
       setEditedContent(data.data.content);
       setStep('review');
@@ -561,6 +660,12 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
     setPublishing(true);
     setError('');
     try {
+      // For HTML posts: convert the HTML to PNG on the client before publishing
+      let imageBase64: string | undefined;
+      if (form.mediaType === 'html' && draft.htmlContent) {
+        imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+      }
+
       const contentToPublish = editing ? editedContent : draft.content;
       const res = await fetch('/api/posts', {
         method: 'PATCH',
@@ -569,6 +674,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
           postId: draft.postId,
           action: 'publish',
           editedContent: contentToPublish !== draft.content ? contentToPublish : undefined,
+          imageBase64,
         }),
       });
       const data = await res.json();
@@ -654,8 +760,13 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
         ) : draft && (
           <>
             <div className="space-y-3 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
-              {/* Media preview */}
-              {draft.mediaUrl && (
+              {/* HTML card preview */}
+              {draft.htmlContent && form.mediaType === 'html' && (
+                <HtmlPreview html={draft.htmlContent} />
+              )}
+
+              {/* Media preview (image / video) */}
+              {!draft.htmlContent && draft.mediaUrl && (
                 <div className="rounded-lg border overflow-hidden">
                   {form.mediaType === 'image' ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -962,20 +1073,47 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
   const [draft, setDraft] = useState(post.editedContent ?? post.content);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const displayContent = post.editedContent ?? post.content;
   const isPending = post.status === 'pending_review';
   const isApproved = post.status === 'approved';
   const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
 
+  const handleDelete = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/posts?postId=${post.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error ?? 'Delete failed');
+      } else {
+        setOpen(false);
+        await onAction(post.id, 'delete');
+      }
+    } catch {
+      setError('Delete failed');
+    } finally {
+      setBusy(false);
+      setConfirmDelete(false);
+    }
+  };
+
   const act = async (action: string, content?: string) => {
     setBusy(true);
     setError('');
     try {
+      // For publish action on HTML posts: convert HTML→PNG client-side first
+      let imageBase64: string | undefined;
+      if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
+        imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+      }
+
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: post.id, action, editedContent: content }),
+        body: JSON.stringify({ postId: post.id, action, editedContent: content, imageBase64 }),
       });
       const data = await res.json();
       if (!data.success && data.error) setError(data.error);
@@ -1008,10 +1146,15 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Media preview */}
-          {post.mediaUrl && (
+          {/* HTML preview */}
+          {post.htmlContent && post.mediaType === 'html' && (
+            <HtmlPreview html={post.htmlContent} />
+          )}
+
+          {/* Media preview (image when mediaUrl exists but no htmlContent, or video) */}
+          {!post.htmlContent && post.mediaUrl && (
             <div className="rounded-lg border overflow-hidden">
-              {post.mediaType === 'image' ? (
+              {(post.mediaType === 'image' || post.mediaType === 'html') ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={post.mediaUrl} alt="Post media" className="w-full max-h-64 object-cover" />
               ) : post.mediaType === 'video' ? (
@@ -1064,6 +1207,27 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
                   <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Retry
                 </Button>
               )}
+              {(isPending || isApproved) && (
+                !confirmDelete ? (
+                  <Button
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-destructive ml-auto"
+                    onClick={() => setConfirmDelete(true)}
+                    disabled={busy}
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />Delete
+                  </Button>
+                ) : (
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-xs text-muted-foreground">Delete this post?</span>
+                    <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)} disabled={busy}>Cancel</Button>
+                    <Button variant="destructive" size="sm" onClick={handleDelete} disabled={busy}>
+                      {busy ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-1.5 h-3.5 w-3.5" />}
+                      Delete
+                    </Button>
+                  </div>
+                )
+              )}
             </>
           )}
         </DialogFooter>
@@ -1084,9 +1248,11 @@ interface PostCardProps {
 function PostCard({ post, onAction }: PostCardProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const statusConfig = STATUS_CONFIG[post.status];
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const statusConfig = STATUS_CONFIG[post.status] ?? { label: post.status, variant: 'outline' as const, icon: AlertCircle };
   const StatusIcon = statusConfig.icon;
-  const MediaIcon = MEDIA_ICONS[post.mediaType ?? 'text'];
+  const mediaType = (post.mediaType ?? 'text') as keyof typeof MEDIA_ICONS;
+  const MediaIcon = MEDIA_ICONS[mediaType] ?? MEDIA_ICONS.text;
   const displayContent = post.editedContent ?? post.content;
   const isPending = post.status === 'pending_review';
   const isApproved = post.status === 'approved';
@@ -1095,10 +1261,16 @@ function PostCard({ post, onAction }: PostCardProps) {
     setBusy(true);
     setError('');
     try {
+      // For publish action on HTML posts: convert HTML→PNG client-side first
+      let imageBase64: string | undefined;
+      if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
+        imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+      }
+
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: post.id, action }),
+        body: JSON.stringify({ postId: post.id, action, imageBase64 }),
       });
       const data = await res.json();
       if (!data.success && data.error) setError(data.error);
@@ -1107,6 +1279,25 @@ function PostCard({ post, onAction }: PostCardProps) {
       setError('Action failed');
     }
     setBusy(false);
+  };
+
+  const handleDelete = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/posts?postId=${post.id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) {
+        setError(data.error ?? 'Delete failed');
+      } else {
+        await onAction(post.id, 'delete');
+      }
+    } catch {
+      setError('Delete failed');
+    } finally {
+      setBusy(false);
+      setConfirmDelete(false);
+    }
   };
 
   return (
@@ -1127,7 +1318,20 @@ function PostCard({ post, onAction }: PostCardProps) {
               {post.status === 'published' && post.publishedAt && ` · Published ${formatDate(post.publishedAt)}`}
             </p>
           </div>
-          <PostPreviewDialog post={post} onAction={onAction} />
+          <div className="flex items-center gap-1 shrink-0">
+            <PostPreviewDialog post={post} onAction={onAction} />
+            {(isPending || isApproved) && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+                disabled={busy}
+              >
+                <Trash2 className="h-3.5 w-3.5" /><span className="sr-only">Delete post</span>
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -1169,6 +1373,16 @@ function PostCard({ post, onAction }: PostCardProps) {
             <Button size="sm" variant="outline" onClick={() => act('retry')} disabled={busy}>
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Retry
             </Button>
+          )}
+          {(isPending || isApproved) && confirmDelete && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-xs text-muted-foreground">Delete this post?</span>
+              <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)} disabled={busy}>Cancel</Button>
+              <Button size="sm" variant="destructive" onClick={handleDelete} disabled={busy}>
+                {busy ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <Trash2 className="mr-1.5 h-3 w-3" />}
+                Delete
+              </Button>
+            </div>
           )}
         </div>
       </CardContent>

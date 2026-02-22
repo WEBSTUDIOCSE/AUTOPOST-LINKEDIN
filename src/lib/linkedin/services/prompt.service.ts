@@ -22,6 +22,7 @@ const WORD_LIMITS: Record<PostMediaType, { min: number; max: number }> = {
   text:  { min: 150, max: 300 },
   image: { min: 80,  max: 180 },
   video: { min: 60,  max: 150 },
+  html:  { min: 80,  max: 180 },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -63,6 +64,22 @@ An AI-generated short video will be displayed below your text on LinkedIn.
 - Reference the video naturally (e.g. "Watch this quick breakdown 👇", "I visualized this concept below")
 - Keep text significantly shorter — the video does the heavy lifting
 - Front-load the key insight in the text so readers engage with the video`;
+
+const HTML_ADDON = `
+
+HTML CARD CONTEXT:
+A professionally-designed HTML infographic card will be displayed below your text on LinkedIn.
+
+CRITICAL RULES FOR THE TEXT:
+- Your HOOK (line 1) is everything. It must be a bold, specific, attention-grabbing statement that makes developers STOP scrolling. Examples of great hooks:
+  • "90% of React apps fail at this one pattern."
+  • "I deleted 4,000 lines of code last week. My app got faster."
+  • "Stop using useEffect for data fetching. Here's what senior devs use instead."
+- Do NOT write a generic hook like "X is great" or "Let's talk about X" — that's boring and gets zero engagement.
+- Reference the card naturally in the body (e.g. "See the breakdown below 👇", "Full comparison in the card")
+- The card handles the structured detail — your text should tell the STORY, share the INSIGHT, take a STANCE
+- Keep text shorter (the card carries visual weight) but make every sentence count
+- Every fact, stat, or technical claim in your text MUST be accurate. If you're unsure about a number, don't include it.`;
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MEDIA PROMPT TEMPLATES
@@ -139,6 +156,7 @@ export const PromptService = {
 
     if (mediaType === 'image') prompt += IMAGE_ADDON;
     if (mediaType === 'video') prompt += VIDEO_ADDON;
+    if (mediaType === 'html')  prompt += HTML_ADDON;
 
     if (persona) {
       prompt += `\n\nUSER'S WRITING STYLE:\n${persona}\nAdapt your tone and style to match the above while keeping all other rules.`;

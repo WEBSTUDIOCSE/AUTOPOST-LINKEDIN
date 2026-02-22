@@ -14,6 +14,7 @@ import { createAIAdapter } from '@/lib/ai';
 import { getAIConfig } from '@/lib/firebase/config/environments';
 import { AI_CONFIGS } from '@/lib/firebase/config/environments';
 import { uploadMediaToStorage } from '@/lib/firebase/services/media-storage.service';
+import { generateHtmlCard } from '@/lib/html-gen';
 import { PromptService } from './prompt.service';
 import type { PostGenerationContext, PostMediaType } from '../types';
 import type { AIProviderConfig, AIProvider } from '@/lib/ai';
@@ -36,10 +37,12 @@ export interface GeneratedPost {
   content: string;
   /** Short 1-line summary for feeding to the next post as context */
   summary: string;
-  /** Generated media (image or video) — undefined for text-only posts */
+  /** Generated media (image or video) — undefined for text-only and html posts */
   media?: GeneratedMedia;
   /** What type of media was generated */
   mediaType: PostMediaType;
+  /** AI-generated HTML infographic — only for mediaType 'html' */
+  htmlContent?: string;
   /** Non-fatal error from media generation — post was saved as text-only */
   mediaGenerationError?: string;
 }
@@ -111,8 +114,17 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
   // 3. Generate media if requested — failures are non-fatal; post will be text-only
   let media: GeneratedMedia | undefined;
   let mediaGenerationError: string | undefined;
+  let htmlContent: string | undefined;
 
-  if (mediaType === 'image' && adapter.supportsCapability('image')) {
+  if (mediaType === 'html') {
+    try {
+      // AI generates a self-contained HTML infographic
+      htmlContent = await generateHtmlCard(adapter, context.topic, content);
+    } catch (htmlErr) {
+      mediaGenerationError = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);
+      console.error('[post-generator] HTML generation failed (continuing text-only):', mediaGenerationError);
+    }
+  } else if (mediaType === 'image' && adapter.supportsCapability('image')) {
     try {
       const imgPromptResult = await adapter.generateText({
         prompt: PromptService.buildMediaUserPrompt(context.topic, content, 'image'),
@@ -121,9 +133,6 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         maxTokens: 200,
       });
 
-      // Reinforce the topic directly in the image prompt to prevent drift.
-      // The text model sometimes outputs generic prompts; prepending the topic
-      // anchors the image model to the correct subject.
       const rawImagePrompt = imgPromptResult.text.trim();
       const topicAnchor = `Create a professional tech infographic about: "${context.topic}". `;
       const imagePrompt = `${topicAnchor}${rawImagePrompt}`;
@@ -147,9 +156,6 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
       if (imageResult.images.length > 0) {
         const img = imageResult.images[0];
-
-        // Gemini returns base64 blobs — upload to Firebase Storage to avoid
-        // Firestore 1MB document limit when storing mediaUrl.
         let mediaUrl: string;
         if (img.url) {
           mediaUrl = img.url;
@@ -163,7 +169,6 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         } else {
           mediaUrl = '';
         }
-
         media = { url: mediaUrl, mimeType: img.mimeType, prompt: imagePrompt };
       }
     } catch (imgErr) {
@@ -214,7 +219,7 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
     }
   }
 
-  return { content, summary, media, mediaType, mediaGenerationError };
+  return { content, summary, media, mediaType, htmlContent, mediaGenerationError };
 }
 
 /**

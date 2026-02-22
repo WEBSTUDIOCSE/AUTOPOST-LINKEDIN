@@ -50,6 +50,7 @@ export const PostService = {
     mediaMimeType?: string;
     mediaPrompt?: string;
     linkedinMediaAsset?: string;
+    htmlContent?: string;
   }) {
     return firebaseHandler(async () => {
       const db = getAdminDb();
@@ -70,6 +71,7 @@ export const PostService = {
         mediaMimeType: data.mediaMimeType ?? null,
         mediaPrompt: data.mediaPrompt ?? null,
         linkedinMediaAsset: data.linkedinMediaAsset ?? null,
+        htmlContent: data.htmlContent ?? null,
         editedContent: null,
         status: 'pending_review' as PostStatus,
         publishedAt: null,
@@ -211,6 +213,18 @@ export const PostService = {
     }, 'PostService.setLinkedinMediaAsset');
   },
 
+  /** Set media URL + MIME type (used when client converts HTML → PNG at publish time) */
+  setMediaUrl(postId: string, mediaUrl: string, mimeType: string) {
+    return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
+        mediaUrl,
+        mediaMimeType: mimeType,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }, 'PostService.setMediaUrl');
+  },
+
   /** Mark post as failed */
   markFailed(postId: string, reason: string) {
     return firebaseVoidHandler(async () => {
@@ -247,5 +261,13 @@ export const PostService = {
         updatedAt: FieldValue.serverTimestamp(),
       });
     }, 'PostService.updateContent');
+  },
+
+  /** Permanently delete a post (drafts, rejected, skipped, failed, or published) */
+  deletePost(postId: string) {
+    return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).delete();
+    }, 'PostService.deletePost');
   },
 };

@@ -97,7 +97,7 @@ export type PostStatus =
   | 'failed';
 
 /** What kind of media accompanies the text */
-export type PostMediaType = 'text' | 'image' | 'video';
+export type PostMediaType = 'text' | 'image' | 'video' | 'html';
 
 /**
  * Firestore: `posts/{postId}`
@@ -147,6 +147,8 @@ export interface Post {
   mediaMimeType?: string;
   /** The AI prompt used to generate the media */
   mediaPrompt?: string;
+  /** AI-generated HTML infographic — stored for preview, converted to PNG at publish time */
+  htmlContent?: string;
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */

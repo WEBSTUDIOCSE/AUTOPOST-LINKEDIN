@@ -19,6 +19,7 @@ import {
   uploadVideoToLinkedIn,
   downloadMediaAsBuffer,
 } from '@/lib/linkedin/linkedin-oauth';
+import { uploadMediaToStorage } from '@/lib/firebase/services/media-storage.service';
 import type { PostMediaType } from '@/lib/linkedin/types';
 
 // ── Validation constants ─────────────────────────────────────────────────────
@@ -34,7 +35,7 @@ const VALID_VIDEO_RESOLUTIONS = ['720p', '1080p', '4k'];
 // Body:
 //   mode: 'instant' | 'scheduled'  (default 'scheduled')
 //   topic: string (required)
-//   mediaType: 'text' | 'image' | 'video'  (default 'text')
+//   mediaType: 'text' | 'image' | 'video' | 'html'  (default 'text')
 //   notes?: string
 //   seriesId?: string
 //
@@ -197,6 +198,7 @@ export async function POST(request: NextRequest) {
       mediaUrl: draft.media?.url,
       mediaMimeType: draft.media?.mimeType,
       mediaPrompt: draft.media?.prompt,
+      htmlContent: draft.htmlContent,
     });
 
     if (!result.success || !result.data) {
@@ -221,6 +223,7 @@ export async function POST(request: NextRequest) {
         content: draft.content,
         summary: draft.summary,
         media: draft.media,
+        htmlContent: draft.htmlContent,
         mediaType,
         mode,
         ...(draft.mediaGenerationError && { mediaWarning: draft.mediaGenerationError }),
@@ -267,6 +270,36 @@ export async function GET(request: NextRequest) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// DELETE — Permanently remove a post
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const postId = request.nextUrl.searchParams.get('postId');
+    if (!postId) {
+      return NextResponse.json({ error: 'Missing required query param: postId' }, { status: 400 });
+    }
+
+    // Verify ownership
+    const postResult = await PostService.getById(postId);
+    if (!postResult.data || postResult.data.userId !== user.uid) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    }
+
+    await PostService.deletePost(postId);
+    return NextResponse.json({ success: true, message: 'Post deleted' });
+  } catch (err) {
+    console.error('[API /posts DELETE]', err);
+    return NextResponse.json({ error: 'Failed to delete post' }, { status: 500 });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PATCH — Status transitions (approve, reject, edit, retry, regenerate)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -278,7 +311,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { postId, action, editedContent } = body;
+    const { postId, action, editedContent, imageBase64 } = body;
 
     if (!postId || !action) {
       return NextResponse.json(
@@ -365,6 +398,19 @@ export async function PATCH(request: NextRequest) {
         const publishContent = editedContent ?? post.editedContent ?? post.content;
 
         try {
+          // ── HTML posts: client sends imageBase64 (html2canvas capture) ────
+          // Upload to Firebase Storage first, then set mediaUrl on the post.
+          if (post.mediaType === 'html' && imageBase64 && !post.mediaUrl) {
+            const mediaUrl = await uploadMediaToStorage({
+              base64: imageBase64,
+              mimeType: 'image/png',
+              folder: 'posts/images',
+              userId: user.uid,
+            });
+            await PostService.setMediaUrl(post.id, mediaUrl, 'image/png');
+            post.mediaUrl = mediaUrl;
+          }
+
           // If post has a media URL (stored in Firebase Storage) but no LinkedIn
           // asset URN yet, upload the media to LinkedIn now and get the URN.
           let mediaAssetUrn = post.linkedinMediaAsset ?? undefined;
@@ -372,7 +418,8 @@ export async function PATCH(request: NextRequest) {
           if (!mediaAssetUrn && post.mediaUrl && post.mediaType !== 'text') {
             const mediaBuffer = await downloadMediaAsBuffer(post.mediaUrl);
 
-            if (post.mediaType === 'image') {
+            if (post.mediaType === 'image' || post.mediaType === 'html') {
+              // html posts produce a PNG via the Satori template pipeline — upload as image
               const { imageUrn } = await uploadImageToLinkedIn(
                 pubProfile.linkedinAccessToken,
                 pubProfile.linkedinMemberUrn,
