@@ -2,7 +2,7 @@
 
 /**
  * Settings — Configure LinkedIn connection, posting schedule,
- * AI persona, draft timing, and notifications.
+ * draft timing, and notifications.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -13,9 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
   SelectContent,
@@ -27,7 +25,6 @@ import {
   Linkedin,
   Bell,
   Clock,
-  Pen,
   Globe,
   Calendar,
   Check,
@@ -152,7 +149,6 @@ export default function SettingsClient() {
 
   // Form state
   const [schedule, setSchedule] = useState<PostingSchedule>(DEFAULT_SCHEDULE);
-  const [persona, setPersona] = useState('');
   const [timezone, setTimezone] = useState('Asia/Kolkata');
   const [draftHour, setDraftHour] = useState('21');
   const [reviewHour, setReviewHour] = useState('3');
@@ -167,7 +163,6 @@ export default function SettingsClient() {
         const p = data.data as AutoposterProfile;
         setProfile(p);
         setSchedule(p.postingSchedule ?? DEFAULT_SCHEDULE);
-        setPersona(p.persona ?? '');
         setTimezone(p.timezone ?? 'Asia/Kolkata');
         setDraftHour(String(p.draftGenerationHour ?? 21));
         setReviewHour(String(p.reviewDeadlineHour ?? 3));
@@ -207,7 +202,6 @@ export default function SettingsClient() {
 
   // Save handlers
   const saveSchedule = () => saveField('schedule', { postingSchedule: schedule });
-  const savePersona = () => saveField('persona', { persona });
   const saveTiming = () =>
     saveField('timing', {
       draftGenerationHour: Number(draftHour),
@@ -352,36 +346,6 @@ export default function SettingsClient() {
             )}
             Save Schedule
           </Button>
-        </div>
-      </SettingsSection>
-
-      {/* AI Persona */}
-      <SettingsSection
-        icon={Pen}
-        title="Writing Style"
-        description="Describe your tone — the AI will match it."
-      >
-        <div className="space-y-3">
-          <Textarea
-            placeholder="e.g. I write short, punchy LinkedIn posts with 2-3 paragraphs. I use emojis sparingly. I share what I built and what I learned."
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            rows={4}
-            className="resize-none"
-          />
-          <div className="flex items-center justify-between">
-            <p className="text-[10px] text-muted-foreground">
-              {persona.length} / 1000 characters
-            </p>
-            <Button size="sm" onClick={savePersona} disabled={saving === 'persona'}>
-              {saving === 'persona' ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Save
-            </Button>
-          </div>
         </div>
       </SettingsSection>
 

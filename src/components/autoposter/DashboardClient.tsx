@@ -19,7 +19,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import {
@@ -192,8 +191,8 @@ function NextPostCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg border bg-secondary/30 p-4">
-          <p className="text-sm leading-relaxed whitespace-pre-line line-clamp-8">{displayContent}</p>
+        <div className="rounded-lg border bg-secondary/30 p-4 max-h-60 overflow-y-auto">
+          <p className="text-sm leading-relaxed whitespace-pre-line">{displayContent}</p>
         </div>
 
         {isPending && (
@@ -378,9 +377,9 @@ export default function DashboardClient() {
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Your LinkedIn content engine at a glance.
           </p>

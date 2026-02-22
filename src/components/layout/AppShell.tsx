@@ -18,11 +18,8 @@ import {
   FileText,
   Settings,
   User,
-  Menu,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +27,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 
 // ── Navigation Items ─────────────────────────────────────────────────────────
 
@@ -128,67 +124,19 @@ function DesktopSidebar({ pathname }: { pathname: string }) {
   );
 }
 
-// ── Mobile Top Bar + Sheet ───────────────────────────────────────────────────
+// ── Mobile Top Bar ──────────────────────────────────────────────────────────
 
-function MobileHeader({
-  pathname,
-  open,
-  setOpen,
-}: {
-  pathname: string;
-  open: boolean;
-  setOpen: (v: boolean) => void;
-}) {
-  const currentPage = NAV_ITEMS.find((i) => i.href === pathname)?.label ?? 'AutoPoster';
+function MobileHeader({ pathname }: { pathname: string }) {
+  const currentPage = [...NAV_ITEMS, ...SECONDARY_NAV].find((i) => i.href === pathname)?.label ?? 'AutoPoster';
 
   return (
-    <header className="md:hidden sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-card px-4">
-      <div className="flex items-center gap-3">
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Menu className="h-4 w-4" />
-              <span className="sr-only">Menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <div className="flex h-14 items-center px-4">
-              <Link
-                href="/dashboard"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                  <span className="text-sm font-bold text-primary-foreground">LP</span>
-                </div>
-                <span className="text-base font-semibold tracking-tight">AutoPoster</span>
-              </Link>
-            </div>
-            <Separator />
-            <nav className="space-y-1 px-3 py-4">
-              {NAV_ITEMS.map((item) => (
-                <NavLink
-                  key={item.href}
-                  {...item}
-                  isActive={pathname === item.href}
-                  onClick={() => setOpen(false)}
-                />
-              ))}
-              <Separator className="my-3" />
-              {SECONDARY_NAV.map((item) => (
-                <NavLink
-                  key={item.href}
-                  {...item}
-                  isActive={pathname === item.href}
-                  onClick={() => setOpen(false)}
-                />
-              ))}
-            </nav>
-          </SheetContent>
-        </Sheet>
-        <span className="text-sm font-semibold">{currentPage}</span>
-      </div>
+    <header className="md:hidden sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-card px-4">
+      <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
+          <span className="text-sm font-bold text-primary-foreground">LP</span>
+        </div>
+      </Link>
+      <span className="text-sm font-semibold truncate">{currentPage}</span>
     </header>
   );
 }
@@ -227,13 +175,12 @@ function MobileTabBar({ pathname }: { pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   return (
     <TooltipProvider delayDuration={300}>
       <div className="min-h-screen bg-background">
         <DesktopSidebar pathname={pathname} />
-        <MobileHeader pathname={pathname} open={sheetOpen} setOpen={setSheetOpen} />
+        <MobileHeader pathname={pathname} />
 
         {/* Main content — offset by sidebar width on desktop */}
         <main className="md:pl-60">

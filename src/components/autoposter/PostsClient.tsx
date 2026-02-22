@@ -248,9 +248,9 @@ interface GenerationFormData {
 }
 
 const DEFAULT_FORM: GenerationFormData = {
-  topic: '', notes: '', seriesId: '', mediaType: 'text',
+  topic: '', notes: '', seriesId: '', mediaType: 'html',
   provider: 'gemini',
-  textModel: getDefaultModel('gemini', 'text'),
+  textModel: 'gemini-3.1-pro-preview',
   imageModel: getDefaultModel('gemini', 'image'),
   videoModel: getDefaultModel('gemini', 'video'),
   temperature: '', maxTokens: '',
@@ -913,7 +913,7 @@ function ScheduleDialog({ seriesList, onCreated }: ScheduleDialogProps) {
           Schedule Post
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg flex flex-col max-h-[90dvh]">
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90dvh]">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Schedule AI Post</DialogTitle>
           <DialogDescription>
