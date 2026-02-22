@@ -51,53 +51,43 @@ function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number
     : `html, body { margin: 0; padding: 0; width: ${w}px; overflow: visible; }`;
   const containerRule = h
     ? `Outer container: EXACTLY width:${w}px; height:${h}px; overflow:hidden; margin:0; padding:0 on html and body.`
-    : `Outer container: EXACTLY width:${w}px on html and body. Height is AUTO — let the content determine the natural height. Do NOT set a fixed height. Do NOT set overflow:hidden on body.`;
+    : `Outer container: EXACTLY width:${w}px on html and body. Height is AUTO — let content determine natural height. Do NOT set a fixed height or overflow:hidden on body.`;
 
-  return `You are a world-class web designer. Generate a single, self-contained HTML infographic that visually explains the given topic.
+  return `You are both a world-class web designer AND a deep technical expert on the given topic. Generate a single, self-contained HTML card that explains the topic with expert-level depth and stunning visual design.
 
-STRICT REQUIREMENTS:
-1. Output a complete HTML document (<!DOCTYPE html> through </html>).
-2. ALL styling in a single <style> block inside <head>. NO external stylesheets, NO CDN links, NO <script> tags.
-3. CSS MUST BE COMPACT — this is critical to fit within token limits:
-   - Use CSS shorthand ALWAYS: margin:0 not margin-top:0; margin-right:0; ...
-   - Write one-off styles as style="" on the element instead of a dedicated class.
-   - Reuse the same class across multiple elements — never write the same rule twice.
-   - Avoid verbose utility class names. Use short names like .hdr, .card, .row.
-   - Target 30–50 CSS rules total. NOT 100+.
-   - NO browser-reset boilerplate — just box-sizing:border-box and base html/body.
-4. The design MUST look stunning:
-   - Dark gradient backgrounds (deep navy, charcoal, dark purple)
-   - Bold, clean typography with large headings (use system fonts: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)
-   - Accent colors (cyan #06b6d4, amber #f59e0b, emerald #10b981, purple #8b5cf6) for highlights
-   - Rounded cards with subtle borders and semi-transparent backgrounds (rgba). Do NOT use backdrop-filter or -webkit-backdrop-filter (they break in screenshot tools).
-   - Emojis as icons where appropriate
-   - Clear visual hierarchy: big title → sections → details
+CONTENT STANDARD — this is the most important requirement:
+- Write like a senior engineer explaining to other senior engineers. Go deep.
+- Cover the topic with REAL substance: what it is, why it exists, how it works, key concepts, real-world trade-offs.
+- Use MULTIPLE content sections (3-5), each with a clear heading, 2-4 sentences of explanation, and supporting detail (lists, code, comparisons).
+- Include at least ONE real, runnable code or command example with syntax highlighting using colored spans.
+- Every claim must be accurate and specific. No vague filler. No oversimplifications.
+- Do NOT write carousel-style bullet fragments like "Fast performance" — write actual explanations.
+- Code examples MUST use real commands/APIs (e.g. npx create-next-app@latest). Never invent fictional names.
+
+DESIGN REQUIREMENTS:
+1. Complete HTML document (<!DOCTYPE html> through </html>). NEVER stop mid-document.
+2. ALL styling in a single <style> block. NO external CSS, NO CDN links, NO <script> tags.
+3. CSS shorthand ALWAYS. Inline style="" for one-off values. Reuse classes. No boilerplate resets beyond box-sizing:border-box.
+4. Design MUST be stunning — dark theme:
+   - Background: #0d1117 with a dot-matrix pattern: background-image:radial-gradient(circle,#30363d 2px,transparent 2px); background-size:32px 32px;
+   - Header bar (macOS-style title bar): bg #161b22, three colored dots (red #ff5f56, yellow #ffbd2e, green #27c93f), monospace filename in center.
+   - Content area: cards with bg #161b22, border 1px solid #30363d, border-radius 12px.
+   - Footer/terminal bar: bg #0a0d12, border-top #30363d, monospace terminal prompt + real relevant command output.
+   - Fonts: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif for body; monospace for code.
+   - Accent colors: #79c0ff (cyan), #7ee787 (green), #ff7b72 (pink/red), #F7DF1E (yellow), #8b949e (comment gray).
+   - Rounded cards, subtle glows (box-shadow with rgba), no backdrop-filter.
 5. ${containerRule}
-6. Use flexbox and grid for layout. Modern CSS only.
-7. CONTENT QUALITY:
-   - Use POST CONTEXT as the primary source for the key points and message of the card.
-   - Rephrase into clear, punchy, verifiably-accurate statements.
-   - Do NOT introduce unrelated facts. Stay tightly on the topic and the points in the context.
-   - Do NOT exaggerate, use misleading oversimplifications, or confuse similar concepts.
-   - Every statement should make immediate sense to a senior professional in the field.
-   - Code examples MUST use real, recognisable commands (e.g. npx create-next-app@latest). NEVER invent fictional component names or export statements.
-   - Any terminal/footer output text should reflect real tool output related to the topic. Do NOT write "Waiting for user to swipe right" or carousel-style text.
-8. Keep text SHORT and punchy — this is a visual card, not an article. Max 6-8 short text blocks.
-9. IMPORTANT: You MUST output the COMPLETE HTML document. Do NOT stop mid-document. Always close every tag and end with </html>.
-10. Add this CSS: ${sizeCSS}
-11. DO NOT include any "Swipe Next", "Swipe Right", or carousel navigation text.
-
-LAYOUT (pick the best fit for the topic):
-- Split comparison (X vs Y) — two columns with key differences
-- Numbered list / tips card — 4-6 concise tips with icons
-- Stats dashboard — big numbers with labels
-- Code snippet showcase — syntax-highlighted code with explanation
-- Flow diagram — step-by-step process with arrows
-- Quote + key points — hero quote with supporting bullets
+6. ${sizeCSS}
+7. STRUCTURE (use this layout):
+   - Title bar at top (macOS dots + filename)
+   - Scrollable/full content area with 3-5 sections
+   - Terminal footer at bottom
+8. DO NOT include any carousel text ("Swipe Next", "Swipe Right", etc.).
+9. The terminal footer line MUST show a real, relevant shell command for this topic — not "swipe right".
 
 TOPIC: ${topic}
 
-POST CONTEXT (primary content source — use these points, rephrase for clarity and accuracy):
+POST CONTEXT (use as your content foundation — expand on these points with expert depth):
 ${snippet}
 
 OUTPUT: Return ONLY the complete HTML document. No markdown fencing, no explanation.`;
@@ -183,50 +173,44 @@ function buildTemplatePrompt(
     ? `Outer container: EXACTLY width:${w}px; height:${h}px; overflow:hidden.`
     : `Outer container: EXACTLY width:${w}px. Height is AUTO — let the content determine the natural height. Do NOT set a fixed height. Do NOT set overflow:hidden on body.`;
 
-  return `You are a world-class web designer. Generate a single, self-contained HTML infographic that visually explains the given topic.
+  return `You are both a world-class web designer AND a deep technical expert on the given topic. Generate a single, self-contained HTML card that explains the topic with expert-level depth.
 
-MATCH THE TEMPLATE'S VISUAL STYLE AND STRUCTURE:
-- Same color palette (use the exact hex colors from the TEMPLATE COLOR PALETTE comment)
-- Same font families and font weights
-- Same card/panel styling (borders, border-radius, backgrounds)
-- Same overall layout approach (grid/flexbox patterns, spacing rhythm)
-- Same typography hierarchy and sizing proportions
-- REPRODUCE EVERY STRUCTURAL SECTION: if the template has a title bar, content area, AND a footer/terminal bar — your output MUST include all three sections. Missing the footer is a failure.
-- DECORATIVE BACKGROUND: copy the exact CSS rules from the DECORATIVE CSS comment (dot-matrix bg, glows, etc.) — these MUST appear in your <style> block.
+TEMPLATE STRUCTURE RULES (non-negotiable):
+- The BACKGROUND must match: use the exact background-color and decorative CSS from the DECORATIVE CSS hint.
+- The HEADER/TITLE BAR must match: reproduce the same macOS-style title bar (three colored dots, monospace filename in center) from the template structure.
+- The FOOTER/TERMINAL BAR must match: reproduce the same terminal bar at the bottom with the same styling from the template structure.
+- The main CONTENT AREA between header and footer: you are FREE to design this however you want. Do not copy the template content layout — make something great.
+- Use the exact hex colors from TEMPLATE COLOR PALETTE for all backgrounds, borders, text, and accents.
 
-STRICT REQUIREMENTS:
-1. COMPLETE DOCUMENT — #1 rule: You MUST output a complete HTML document from <!DOCTYPE html> to </html>. Always close every open tag. NEVER stop mid-document.
+CONTENT STANDARD — write with expert depth:
+- Write like a senior engineer explaining to other senior engineers. Go deep.
+- Cover the topic with REAL substance: what it is, why it exists, how it works, key concepts, real-world trade-offs.
+- Use MULTIPLE content sections (3-5), each with a clear heading, 2-4 sentences of explanation, and supporting detail.
+- Include at least ONE real, runnable code or command example with syntax highlighting using colored spans.
+- Every claim must be accurate and specific. No vague filler. No oversimplifications.
+- Code examples MUST use real commands/APIs. NEVER invent fictional component names or function names.
+- The terminal footer line MUST show a real, relevant shell command for the topic. Do NOT write "swipe right" or carousel text.
+
+STRICT TECHNICAL REQUIREMENTS:
+1. COMPLETE DOCUMENT — You MUST output a complete HTML document from <!DOCTYPE html> to </html>. NEVER stop mid-document.
 2. ALL styling in a single <style> block inside <head>. NO external stylesheets, NO CDN links, NO <script> tags.
-3. Convert any Tailwind classes or Google Fonts references to plain CSS. Zero external dependencies.
-4. CSS MUST BE COMPACT — this directly prevents the body content from being cut off:
-   - CSS shorthand ALWAYS: margin:0 not margin-top:0; margin-right:0;...
-   - Inline style="" for one-off values instead of dedicated classes.
-   - Never write the same rule twice — reuse classes.
-   - Target 30–45 CSS rules total. Absolutely NOT 100+.
-   - No boilerplate resets beyond box-sizing:border-box and base html/body.
-   - For decorative effects use the DECORATIVE CSS comment above — copy those rules as-is, do NOT expand or invent more.
+3. Convert any Tailwind classes or Google Fonts from the template to plain CSS. Zero external dependencies.
+4. CSS MUST BE COMPACT:
+   - CSS shorthand ALWAYS. Inline style="" for one-off values. Never repeat a rule.
+   - For decorative effects use the DECORATIVE CSS comment above — copy those rules as-is.
+   - Do NOT use backdrop-filter or -webkit-backdrop-filter (breaks screenshot tools).
 5. ${containerRule}
 6. Add this CSS: ${sizeCSS}
-7. Do NOT use backdrop-filter or -webkit-backdrop-filter (breaks screenshot tools).
-8. CONTENT QUALITY — use the POST CONTEXT as your primary content guide:
-   - The key points and message come from POST CONTEXT — use them directly.
-   - Rephrase into clear, punchy statements. Verify accuracy of any technical claims.
-   - Do NOT introduce facts not in the context. Stay tightly on topic.
-   - Do NOT exaggerate, use misleading oversimplifications, or confuse similar concepts.
-   - Every statement should make immediate sense to a senior professional in the field.
-   - Code examples MUST use real, recognisable commands (e.g. npx create-next-app@latest, npm run dev). NEVER invent fictional component names, function names, or export statements (e.g. do NOT write "export default function NextPower()").
-   - The terminal/footer bar output text should reflect actual tool output or a shell command related to the topic. Do NOT write "Waiting for user to swipe right" or any carousel text.
-9. Keep text SHORT and punchy — visual card, not an article. Max 6-8 short text blocks.
-10. DO NOT include any "Swipe Next", "Swipe Right", or carousel navigation text anywhere in the card.
+7. DO NOT include any "Swipe Next", "Swipe Right", or carousel navigation text.
 
-TEMPLATE (CSS/scripts stripped — palette + decorative CSS hints are in comments; reproduce the full HTML structure including every section shown):
+TEMPLATE (CSS/scripts stripped — copy the bg, header, and footer structure exactly; design the content area freely):
 ${'```html'}
 ${templateRef}
 ${'```'}
 
 TOPIC: ${topic}
 
-POST CONTEXT (primary content source — use these points, rephrase for clarity and accuracy):
+POST CONTEXT (use as your content foundation — expand on these points with expert depth):
 ${snippet}
 
 OUTPUT: Return ONLY the complete HTML document. No markdown fencing, no explanation.`;
@@ -238,8 +222,8 @@ function buildHtmlPrompt(
   templateHtml?: string,
   dimensions?: { width: number; height?: number },
 ): string {
-  // 600 chars gives enough context for good content without inflating input tokens
-  const snippet = postContent.slice(0, 600);
+  // 1200 chars — enough context for the AI to write expert-level detailed sections
+  const snippet = postContent.slice(0, 1200);
   const w = dimensions?.width ?? 1080;
   // height 0 or undefined = auto (null signals auto to prompt builders)
   const h = (dimensions?.height && dimensions.height > 0) ? dimensions.height : null;
