@@ -8,10 +8,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/server';
+
+// HTML generation can take up to 2 minutes for large templates
+export const maxDuration = 150; // seconds
 import { PostService } from '@/lib/linkedin/services/post.service';
 import { SeriesService } from '@/lib/linkedin/services/series.service';
 import { IdeaService } from '@/lib/linkedin/services/idea.service';
 import { ProfileService } from '@/lib/linkedin/services/profile.service';
+import { TemplateService } from '@/lib/linkedin/services/template.service';
 import { generatePostDraft, regeneratePostDraft } from '@/lib/linkedin/services/post-generator.service';
 import {
   createLinkedInPost,
@@ -155,6 +159,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Resolve template (if HTML mediaType with templateId) ────────────────
+
+    const templateId = typeof body.templateId === 'string' ? body.templateId.trim() : undefined;
+    let templateHtml: string | undefined;
+    let templateDimensions: { width: number; height?: number } | undefined;
+
+    if (templateId && mediaType === 'html') {
+      const tplResult = await TemplateService.getById(templateId);
+      if (tplResult.data && tplResult.data.userId === user.uid) {
+        templateHtml = tplResult.data.htmlContent;
+        templateDimensions = tplResult.data.dimensions;
+      }
+    }
+
     // ── Generate draft with AI ───────────────────────────────────────────────
 
     const dayName = scheduledFor.toLocaleDateString('en-US', { weekday: 'long' });
@@ -167,6 +185,10 @@ export async function POST(request: NextRequest) {
       persona: profile?.persona ?? undefined,
       publishDay: dayName,
       mediaType,
+      // Template
+      templateId,
+      templateHtml,
+      templateDimensions,
       // Model control
       provider,
       textModel,

@@ -24,6 +24,8 @@ export interface TextGenerationRequest {
   temperature?: number;
   /** Maximum tokens in the response */
   maxTokens?: number;
+  /** Override the default SDK timeout (ms). Useful for large-output requests. */
+  timeoutMs?: number;
 }
 
 export interface TextGenerationResponse {

@@ -19,6 +19,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -43,7 +50,7 @@ import {
   ChevronUp,
   X,
 } from 'lucide-react';
-import type { Series, SeriesStatus, SeriesTopic } from '@/lib/linkedin/types';
+import type { Series, SeriesStatus, SeriesTopic, HtmlTemplate } from '@/lib/linkedin/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -165,34 +172,43 @@ function TopicInput({
 
 function SeriesDialog({
   series,
+  templates,
   open,
   onOpenChange,
   onSave,
   saving,
 }: {
   series?: Series;
+  templates: HtmlTemplate[];
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSave: (data: { title: string; category: string; topicQueue: SeriesTopic[] }) => Promise<void>;
+  onSave: (data: { title: string; category: string; topicQueue: SeriesTopic[]; templateId?: string }) => Promise<void>;
   saving: boolean;
 }) {
   const isEdit = !!series;
   const [title, setTitle] = useState(series?.title ?? '');
   const [category, setCategory] = useState(series?.category ?? '');
   const [topics, setTopics] = useState<SeriesTopic[]>(series?.topicQueue ?? []);
+  const [templateId, setTemplateId] = useState(series?.templateId ?? '');
 
   // Reset form when dialog opens with different series
   useEffect(() => {
     setTitle(series?.title ?? '');
     setCategory(series?.category ?? '');
     setTopics(series?.topicQueue ?? []);
+    setTemplateId(series?.templateId ?? '');
   }, [series, open]);
 
   const canSubmit = title.trim() && category.trim() && topics.length > 0 && !saving;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-    await onSave({ title: title.trim(), category: category.trim(), topicQueue: topics });
+    await onSave({
+      title: title.trim(),
+      category: category.trim(),
+      topicQueue: topics,
+      templateId: templateId || undefined,
+    });
   };
 
   return (
@@ -222,6 +238,25 @@ function SeriesDialog({
               onChange={(e) => setCategory(e.target.value)}
             />
           </div>
+
+          {/* Default Template for this series */}
+          {templates.length > 0 && (
+            <div className="space-y-2">
+              <Label>Default Template <span className="text-xs text-muted-foreground">(optional — for HTML posts)</span></Label>
+              <Select
+                value={templateId || '_none'}
+                onValueChange={(v) => setTemplateId(v === '_none' ? '' : v)}
+              >
+                <SelectTrigger><SelectValue placeholder="No template" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">No template</SelectItem>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Topics ({topics.length})</Label>
@@ -399,6 +434,7 @@ function SeriesCard({
 export default function SeriesClient() {
   const { user } = useAuth();
   const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [templates, setTemplates] = useState<HtmlTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -408,9 +444,15 @@ export default function SeriesClient() {
   const fetchSeries = useCallback(async () => {
     if (!user) return;
     try {
-      const res = await fetch('/api/series');
-      const data = await res.json();
-      if (data.success) setSeriesList(data.data ?? []);
+      const [seriesRes, templatesRes] = await Promise.all([
+        fetch('/api/series'),
+        fetch('/api/templates'),
+      ]);
+      const [seriesData, templatesData] = await Promise.all([
+        seriesRes.json(), templatesRes.json(),
+      ]);
+      if (seriesData.success) setSeriesList(seriesData.data ?? []);
+      if (templatesData.success) setTemplates(templatesData.data ?? []);
     } catch {
       // Silent
     } finally {
@@ -424,7 +466,7 @@ export default function SeriesClient() {
   }, [fetchSeries]);
 
   // Create or Update
-  const handleSave = async (formData: { title: string; category: string; topicQueue: SeriesTopic[] }) => {
+  const handleSave = async (formData: { title: string; category: string; topicQueue: SeriesTopic[]; templateId?: string }) => {
     setSaving(true);
     try {
       if (editingSeries) {
@@ -564,6 +606,7 @@ export default function SeriesClient() {
         }}
         onSave={handleSave}
         saving={saving}
+        templates={templates}
       />
 
       {/* Delete Confirmation Dialog */}

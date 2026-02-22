@@ -27,3 +27,6 @@ export const IDEAS_COLLECTION = `${ENV_PREFIX}_ideas`;
 
 /** Autoposter profiles — LinkedIn tokens, schedule, persona */
 export const PROFILES_COLLECTION = `${ENV_PREFIX}_autoposter_profiles`;
+
+/** HTML templates — reusable visual styles for AI HTML generation */
+export const TEMPLATES_COLLECTION = `${ENV_PREFIX}_html_templates`;

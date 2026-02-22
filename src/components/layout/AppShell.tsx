@@ -16,6 +16,7 @@ import {
   Layers,
   Lightbulb,
   FileText,
+  Code2,
   Settings,
   User,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/posts',     label: 'Posts',     icon: FileText },
   { href: '/series',   label: 'Series',    icon: Layers },
+  { href: '/templates', label: 'Templates', icon: Code2 },
   { href: '/ideas',    label: 'Ideas',     icon: Lightbulb },
   { href: '/settings', label: 'Settings',  icon: Settings },
 ] as const;

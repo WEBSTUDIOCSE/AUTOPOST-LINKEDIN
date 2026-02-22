@@ -16,6 +16,7 @@ const PROTECTED_ROUTES = [
   '/ai-test',
   '/dashboard',
   '/series',
+  '/templates',
   '/ideas',
   '/settings',
 ] as const;
@@ -92,12 +93,21 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
   
-  // Redirect authenticated users from auth routes to profile
-  if (isAuthRoute && isUserAuthenticated) {
+  // If the server flagged the token as expired, clear the stale cookie and
+  // let the user reach the login page rather than bouncing them back.
+  const isExpiredFlag = request.nextUrl.searchParams.get('expired') === '1';
+  if (isAuthRoute && isUserAuthenticated && !isExpiredFlag) {
     const redirectParam = request.nextUrl.searchParams.get('redirect');
     const safePath = sanitizeRedirect(redirectParam);
     const redirectUrl = new URL(safePath, request.url);
     return NextResponse.redirect(redirectUrl);
+  }
+
+  // Clear the stale cookie so the login page starts fresh.
+  if (isAuthRoute && isUserAuthenticated && isExpiredFlag) {
+    const response = NextResponse.next();
+    response.cookies.delete('firebaseAuthToken');
+    return response;
   }
   
   // Continue to the requested page

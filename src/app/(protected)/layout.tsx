@@ -20,7 +20,7 @@ export default async function ProtectedLayout({
   const user = await getCurrentUser();
 
   if (!user) {
-    redirect('/login');
+    redirect('/login?expired=1');
   }
 
   return <AppShell>{children}</AppShell>;

@@ -119,7 +119,13 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
   if (mediaType === 'html') {
     try {
       // AI generates a self-contained HTML infographic
-      htmlContent = await generateHtmlCard(adapter, context.topic, content);
+      htmlContent = await generateHtmlCard({
+        adapter,
+        topic: context.topic,
+        postContent: content,
+        templateHtml: context.templateHtml,
+        dimensions: context.templateDimensions,
+      });
     } catch (htmlErr) {
       mediaGenerationError = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);
       console.error('[post-generator] HTML generation failed (continuing text-only):', mediaGenerationError);

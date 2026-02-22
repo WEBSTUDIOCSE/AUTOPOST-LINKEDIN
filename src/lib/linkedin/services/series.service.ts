@@ -38,6 +38,7 @@ export const SeriesService = {
     category: string;
     topicQueue: SeriesTopic[];
     order?: number;
+    templateId?: string;
   }) {
     return firebaseHandler(async () => {
       const db = getAdminDb();
@@ -49,6 +50,7 @@ export const SeriesService = {
         currentIndex: 0,
         status: 'active' as SeriesStatus,
         order: data.order ?? 0,
+        templateId: data.templateId ?? null,
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       });
@@ -93,8 +95,8 @@ export const SeriesService = {
     }, 'SeriesService.getActiveSeries');
   },
 
-  /** Update series fields (title, category, topicQueue, status, order) */
-  update(seriesId: string, data: Partial<Pick<Series, 'title' | 'category' | 'topicQueue' | 'status' | 'order'>>) {
+  /** Update series fields (title, category, topicQueue, status, order, templateId) */
+  update(seriesId: string, data: Partial<Pick<Series, 'title' | 'category' | 'topicQueue' | 'status' | 'order' | 'templateId'>>) {
     return firebaseVoidHandler(async () => {
       const db = getAdminDb();
       await db.collection(SERIES_COLLECTION).doc(seriesId).update({

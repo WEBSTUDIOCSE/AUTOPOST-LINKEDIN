@@ -50,6 +50,8 @@ export interface Series {
    * next-lowest-order active series automatically.
    */
   order: number;
+  /** Default HTML template for posts in this series */
+  templateId?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -294,6 +296,47 @@ export interface PostGenerationContext {
   videoResolution?: string;
   /** Negative prompt — what to avoid in media generation */
   negativePrompt?: string;
+
+  // ── Template reference ───────────────────────────────────────────────────
+
+  /** HTML template ID — used as style reference for AI HTML generation */
+  templateId?: string;
+  /** Resolved template HTML — injected by API route before calling generator */
+  templateHtml?: string;
+  /** Template dimensions — width is always set, height 0 means auto */
+  templateDimensions?: { width: number; height?: number };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HTML TEMPLATES (reusable visual styles for AI HTML generation)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Firestore: `templates/{templateId}`
+ *
+ * A saved HTML design template that the AI references when generating
+ * infographic cards. Users paste a sample HTML document, give it a name,
+ * and associate it with series or select it per-post.
+ *
+ * The AI receives the template HTML as a style reference and generates
+ * new content matching that design language (fonts, colors, layout).
+ */
+export interface HtmlTemplate {
+  id: string;
+  userId: string;
+  /** Human-readable name — "Dark IDE Theme", "Minimal Light", etc. */
+  name: string;
+  /** Short description of the template's visual style */
+  description?: string;
+  /** The full HTML sample that defines the visual style */
+  htmlContent: string;
+  /** Viewport dimensions the template targets */
+  dimensions: {
+    width: number;
+    height: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════

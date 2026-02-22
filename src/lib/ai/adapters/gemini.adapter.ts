@@ -147,6 +147,7 @@ export class GeminiAdapter implements IAIAdapter {
     try {
       await this.rateLimiter.acquire('gemini');
 
+      const timeoutMs = request.timeoutMs ?? SDK_TIMEOUT_MS;
       const response = await this.withTimeout(
         this.client.models.generateContent({
           model: this.models.text,
@@ -161,9 +162,10 @@ export class GeminiAdapter implements IAIAdapter {
             ...(request.maxTokens !== undefined && {
               maxOutputTokens: request.maxTokens,
             }),
+            httpOptions: { timeout: timeoutMs },
           },
         }),
-        SDK_TIMEOUT_MS,
+        timeoutMs,
         'Text generation timed out',
       );
 

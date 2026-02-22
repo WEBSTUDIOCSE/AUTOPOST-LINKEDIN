@@ -10,7 +10,7 @@
  * Content type (text / image / video) determines what AI produces.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   CheckCircle2, XCircle, RotateCcw, PenLine, Send, Clock,
@@ -42,7 +42,7 @@ import {
   IMAGE_SIZES, VIDEO_RESOLUTIONS, VIDEO_DURATIONS,
 } from '@/components/ai-test/catalog';
 import type { TestProvider, TestCapability, ModelOption } from '@/components/ai-test/types';
-import type { Post, PostStatus, PostMediaType, Series } from '@/lib/linkedin/types';
+import type { Post, PostStatus, PostMediaType, Series, HtmlTemplate } from '@/lib/linkedin/types';
 import html2canvas from 'html2canvas';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -82,41 +82,80 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
   html: Code2,
 };
 
+// ── HTML Dimension Parser ─────────────────────────────────────────────────────
+
+/**
+ * Extract width/height from the HTML's inline CSS.
+ * Looks for patterns like `width: 1080px` and `height: 1080px` in `html` or `body` rules.
+ * Returns defaults if not found.
+ */
+function parseHtmlDimensions(html: string): { width: number; height: number | null } {
+  // Match width/height from CSS rules targeting html/body
+  const wMatch = html.match(/(?:html|body)\s*[^}]*?width\s*:\s*(\d+)px/);
+  const hMatch = html.match(/(?:html|body)\s*[^}]*?height\s*:\s*(\d+)px/);
+  const width = wMatch ? parseInt(wMatch[1], 10) : 1080;
+  // If overflow is visible or no height set, treat as auto
+  const hasOverflowVisible = /(?:html|body)\s*[^}]*?overflow\s*:\s*visible/.test(html);
+  const height = hasOverflowVisible ? null : (hMatch ? parseInt(hMatch[1], 10) : null);
+  return { width, height };
+}
+
 // ── HTML Preview Component ────────────────────────────────────────────────────
 
 /**
  * Render AI-generated HTML in a sandboxed iframe.
- * The HTML is designed at 1200×627px. We scale it down to fit the container
- * using CSS transform so the entire card is always visible.
+ * Reads dimensions from the HTML's CSS — supports both fixed-size and auto-height cards.
  */
 function HtmlPreview({ html, className }: { html: string; className?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0); // start at 0 to avoid flash
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(0);
+  const [iframeHeight, setIframeHeight] = useState<number>(0);
+
+  const { width: designW, height: designH } = useMemo(() => parseHtmlDimensions(html), [html]);
+  const isAutoHeight = designH === null;
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const updateScale = () => setScale(el.clientWidth / 1200);
+    const updateScale = () => setScale(el.clientWidth / designW);
     updateScale();
     const ro = new ResizeObserver(updateScale);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [designW]);
+
+  // For auto-height: measure iframe content after load
+  const handleIframeLoad = useCallback(() => {
+    if (!isAutoHeight) return;
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc?.body) return;
+    // Give styles a moment to render
+    setTimeout(() => {
+      const h = doc.documentElement.scrollHeight || doc.body.scrollHeight;
+      setIframeHeight(h);
+    }, 150);
+  }, [isAutoHeight]);
+
+  const actualH = isAutoHeight ? (iframeHeight || 800) : designH;
+  const containerH = scale > 0 ? Math.ceil(actualH * scale) : 300;
 
   return (
     <div
       ref={containerRef}
       className={cn('rounded-lg border overflow-hidden bg-black', className)}
-      style={{ height: scale > 0 ? Math.ceil(627 * scale) : 300, position: 'relative' }}
+      style={{ height: containerH, position: 'relative' }}
     >
       {scale > 0 && (
         <iframe
+          ref={iframeRef}
           srcDoc={html}
           sandbox="allow-same-origin"
           title="HTML Card Preview"
+          onLoad={handleIframeLoad}
           style={{
-            width: 1200,
-            height: 627,
+            width: designW,
+            height: actualH,
             border: 'none',
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
@@ -132,26 +171,32 @@ function HtmlPreview({ html, className }: { html: string; className?: string }) 
 
 /**
  * Capture HTML content as a PNG base64 string using html2canvas.
- * Creates a temporary hidden iframe, waits for it to load, captures, cleans up.
+ * Reads dimensions from the HTML — supports both fixed-size and auto-height cards.
  */
 async function captureHtmlAsBase64(html: string): Promise<string> {
+  const { width: designW, height: designH } = parseHtmlDimensions(html);
+
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1200px;height:627px;border:none;';
+    // For auto-height, use a tall initial height to let content flow
+    const capH = designH ?? 2000;
+    iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${capH}px;border:none;`;
     iframe.sandbox.add('allow-same-origin');
     iframe.srcdoc = html;
 
     iframe.onload = async () => {
       try {
-        // Wait a tick for styles to apply
         await new Promise(r => setTimeout(r, 200));
 
         const body = iframe.contentDocument?.body;
         if (!body) throw new Error('Cannot access iframe content');
 
+        // For auto-height, use actual content height
+        const finalH = designH ?? (iframe.contentDocument!.documentElement.scrollHeight || capH);
+
         const canvas = await html2canvas(body, {
-          width: 1200,
-          height: 627,
+          width: designW,
+          height: finalH,
           scale: 2,
           useCORS: true,
           backgroundColor: '#0f172a',
@@ -231,6 +276,8 @@ interface GenerationFormData {
   notes: string;
   seriesId: string;
   mediaType: PostMediaType;
+  // Template (for HTML content type)
+  templateId: string;
   // Model control
   provider: TestProvider;
   textModel: string;
@@ -249,6 +296,7 @@ interface GenerationFormData {
 
 const DEFAULT_FORM: GenerationFormData = {
   topic: '', notes: '', seriesId: '', mediaType: 'html',
+  templateId: '',
   provider: 'gemini',
   textModel: 'gemini-3.1-pro-preview',
   imageModel: getDefaultModel('gemini', 'image'),
@@ -265,11 +313,12 @@ function toCapability(mt: PostMediaType): TestCapability {
 }
 
 function GenerationFields({
-  form, setForm, seriesList, disabled, showSeries = false,
+  form, setForm, seriesList, templates, disabled, showSeries = false,
 }: {
   form: GenerationFormData;
   setForm: React.Dispatch<React.SetStateAction<GenerationFormData>>;
   seriesList: Series[];
+  templates: HtmlTemplate[];
   disabled: boolean;
   showSeries?: boolean;
 }) {
@@ -345,6 +394,31 @@ function GenerationFields({
         onChange={handleMediaTypeChange}
         disabled={disabled}
       />
+
+      {/* Template selector — shown when HTML is selected */}
+      {form.mediaType === 'html' && templates.length > 0 && (
+        <div className="space-y-1.5">
+          <Label>Template <span className="text-xs text-muted-foreground">(style reference for the AI)</span></Label>
+          <Select
+            value={form.templateId || '_none'}
+            onValueChange={(v) => setForm(f => ({ ...f, templateId: v === '_none' ? '' : v }))}
+            disabled={disabled}
+          >
+            <SelectTrigger><SelectValue placeholder="No template (default style)" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_none">No template (default style)</SelectItem>
+              {templates.map(t => (
+                <SelectItem key={t.id} value={t.id}>
+                  <span className="font-medium">{t.name}</span>
+                  <span className="text-[10px] text-muted-foreground ml-1.5">
+                    ({t.dimensions.width}×{t.dimensions.height})
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* Series */}
       {showSeries && seriesList.length > 0 && (
@@ -576,6 +650,7 @@ function GenerationFields({
 function buildModelPayload(form: GenerationFormData) {
   return {
     provider: form.provider || undefined,
+    templateId: form.templateId || undefined,
     textModel: form.textModel || undefined,
     imageModel: form.mediaType === 'image' ? (form.imageModel || undefined) : undefined,
     videoModel: form.mediaType === 'video' ? (form.videoModel || undefined) : undefined,
@@ -592,10 +667,11 @@ function buildModelPayload(form: GenerationFormData) {
 
 interface PostNowDialogProps {
   seriesList: Series[];
+  templates: HtmlTemplate[];
   onDone: () => void;
 }
 
-function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
+function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<'input' | 'review'>('input');
   const [generating, setGenerating] = useState(false);
@@ -747,6 +823,7 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
                 form={form}
                 setForm={setForm}
                 seriesList={seriesList}
+                templates={templates}
                 disabled={generating}
                 showSeries
               />
@@ -844,10 +921,11 @@ function PostNowDialog({ seriesList, onDone }: PostNowDialogProps) {
 
 interface ScheduleDialogProps {
   seriesList: Series[];
+  templates: HtmlTemplate[];
   onCreated: (draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType }) => void;
 }
 
-function ScheduleDialog({ seriesList, onCreated }: ScheduleDialogProps) {
+function ScheduleDialog({ seriesList, templates, onCreated }: ScheduleDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -925,6 +1003,7 @@ function ScheduleDialog({ seriesList, onCreated }: ScheduleDialogProps) {
             form={form}
             setForm={setForm}
             seriesList={seriesList}
+            templates={templates}
             disabled={loading}
             showSeries
           />
@@ -1463,19 +1542,24 @@ export default function PostsClient() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [seriesList, setSeriesList] = useState<Series[]>([]);
+  const [templates, setTemplates] = useState<HtmlTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [newDraft, setNewDraft] = useState<{ postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     try {
-      const [postsRes, seriesRes] = await Promise.all([
+      const [postsRes, seriesRes, templatesRes] = await Promise.all([
         fetch('/api/posts?limit=100'),
         fetch('/api/series'),
+        fetch('/api/templates'),
       ]);
-      const [postsData, seriesData] = await Promise.all([postsRes.json(), seriesRes.json()]);
+      const [postsData, seriesData, templatesData] = await Promise.all([
+        postsRes.json(), seriesRes.json(), templatesRes.json(),
+      ]);
       if (postsData.success) setPosts(postsData.data ?? []);
       if (seriesData.success) setSeriesList(seriesData.data ?? []);
+      if (templatesData.success) setTemplates(templatesData.data ?? []);
     } catch {
       // silent
     } finally {
@@ -1506,8 +1590,8 @@ export default function PostsClient() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ScheduleDialog seriesList={seriesList} onCreated={(d) => { setNewDraft(d); fetchData(); }} />
-          <PostNowDialog seriesList={seriesList} onDone={fetchData} />
+          <ScheduleDialog seriesList={seriesList} templates={templates} onCreated={(d) => { setNewDraft(d); fetchData(); }} />
+          <PostNowDialog seriesList={seriesList} templates={templates} onDone={fetchData} />
         </div>
       </div>
 
