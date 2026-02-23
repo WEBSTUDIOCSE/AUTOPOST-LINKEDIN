@@ -124,6 +124,12 @@ export async function POST(request: NextRequest) {
       ? body.negativePrompt.trim().slice(0, 500)
       : undefined;
 
+    // ── Validate page count (HTML carousel) ──────────────────────────────────
+
+    const pageCount = typeof body.pageCount === 'number'
+      ? Math.max(1, Math.min(9, Math.floor(body.pageCount)))
+      : 1;
+
     // ── Get profile & series context ─────────────────────────────────────────
 
     const profileResult = await ProfileService.get(user.uid);
@@ -189,6 +195,8 @@ export async function POST(request: NextRequest) {
       templateId,
       templateHtml,
       templateDimensions,
+      // Page count (HTML carousel)
+      pageCount,
       // Model control
       provider,
       textModel,
@@ -221,6 +229,7 @@ export async function POST(request: NextRequest) {
       mediaMimeType: draft.media?.mimeType,
       mediaPrompt: draft.media?.prompt,
       htmlContent: draft.htmlContent,
+      pageCount,
     });
 
     if (!result.success || !result.data) {
@@ -246,6 +255,7 @@ export async function POST(request: NextRequest) {
         summary: draft.summary,
         media: draft.media,
         htmlContent: draft.htmlContent,
+        pageCount,
         mediaType,
         mode,
         ...(draft.mediaGenerationError && { mediaWarning: draft.mediaGenerationError }),
@@ -333,7 +343,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { postId, action, editedContent, imageBase64 } = body;
+    const { postId, action, editedContent, imageBase64, imageBase64Array } = body;
 
     if (!postId || !action) {
       return NextResponse.json(
@@ -421,9 +431,30 @@ export async function PATCH(request: NextRequest) {
         const publishContent = editedContent ?? post.editedContent ?? post.content;
 
         try {
-          // ── HTML posts: client sends imageBase64 (html2canvas capture) ────
-          // Upload to Firebase Storage first, then set mediaUrl on the post.
-          if (post.mediaType === 'html' && imageBase64 && !post.mediaUrl) {
+          // ── HTML posts: multi-page carousel or single image ────────────────
+          let mediaAssetUrns: string[] | undefined;
+
+          if (post.mediaType === 'html' && imageBase64Array && Array.isArray(imageBase64Array) && imageBase64Array.length > 0) {
+            // Multi-page carousel: upload each page as a separate image
+            const urns: string[] = [];
+            for (const b64 of imageBase64Array) {
+              const mediaUrl = await uploadMediaToStorage({
+                base64: b64,
+                mimeType: 'image/png',
+                folder: 'posts/images',
+                userId: user.uid,
+              });
+              const mediaBuffer = await downloadMediaAsBuffer(mediaUrl);
+              const { imageUrn } = await uploadImageToLinkedIn(
+                pubProfile.linkedinAccessToken,
+                pubProfile.linkedinMemberUrn,
+                mediaBuffer,
+              );
+              urns.push(imageUrn);
+            }
+            mediaAssetUrns = urns;
+          } else if (post.mediaType === 'html' && imageBase64 && !post.mediaUrl) {
+            // Single-page fallback
             const mediaUrl = await uploadMediaToStorage({
               base64: imageBase64,
               mimeType: 'image/png',
@@ -438,11 +469,10 @@ export async function PATCH(request: NextRequest) {
           // asset URN yet, upload the media to LinkedIn now and get the URN.
           let mediaAssetUrn = post.linkedinMediaAsset ?? undefined;
 
-          if (!mediaAssetUrn && post.mediaUrl && post.mediaType !== 'text') {
+          if (!mediaAssetUrns && !mediaAssetUrn && post.mediaUrl && post.mediaType !== 'text') {
             const mediaBuffer = await downloadMediaAsBuffer(post.mediaUrl);
 
             if (post.mediaType === 'image' || post.mediaType === 'html') {
-              // html posts: client captures HTML → PNG via html2canvas, uploaded to Storage first
               const { imageUrn } = await uploadImageToLinkedIn(
                 pubProfile.linkedinAccessToken,
                 pubProfile.linkedinMemberUrn,
@@ -469,7 +499,8 @@ export async function PATCH(request: NextRequest) {
             authorUrn: pubProfile.linkedinMemberUrn,
             text: publishContent,
             mediaType: post.mediaType,
-            mediaAssetUrn,
+            mediaAssetUrn: mediaAssetUrns ? mediaAssetUrns[0] : mediaAssetUrn,
+            mediaAssetUrns,
           });
 
           await PostService.markPublished(postId, linkedinPostId);

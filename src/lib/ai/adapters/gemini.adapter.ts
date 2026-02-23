@@ -56,6 +56,7 @@ const VIDEO_HARD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
 export const VALID_GEMINI_MODELS = new Set([
   // Text
+  'gemini-2.0-flash',           // Fast, no thinking — ideal for HTML/structured output
   'gemini-2.5-flash',
   'gemini-2.5-pro',
   'gemini-3-flash-preview',
@@ -148,9 +149,10 @@ export class GeminiAdapter implements IAIAdapter {
       await this.rateLimiter.acquire('gemini');
 
       const timeoutMs = request.timeoutMs ?? SDK_TIMEOUT_MS;
+      const model = request.model ?? this.models.text;
       const response = await this.withTimeout(
         this.client.models.generateContent({
-          model: this.models.text,
+          model,
           contents: request.prompt,
           config: {
             ...(request.systemInstruction && {
@@ -175,7 +177,7 @@ export class GeminiAdapter implements IAIAdapter {
 
       return {
         text,
-        model: this.models.text,
+        model,
         provider: 'gemini',
         usage: response.usageMetadata
           ? {

@@ -151,6 +151,8 @@ export interface Post {
   mediaPrompt?: string;
   /** AI-generated HTML infographic — stored for preview, converted to PNG at publish time */
   htmlContent?: string;
+  /** Number of carousel pages (1 = single card, 2+ = multi-page carousel sliced from one tall document) */
+  pageCount?: number;
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */
@@ -305,6 +307,8 @@ export interface PostGenerationContext {
   templateHtml?: string;
   /** Template dimensions — width is always set, height 0 means auto */
   templateDimensions?: { width: number; height?: number };
+  /** Number of carousel pages to generate (1 = single card, 2-9 = multi-page) */
+  pageCount?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -358,13 +362,19 @@ export interface LinkedInCreatePostPayload {
   };
   lifecycleState: 'PUBLISHED';
   isReshareDisabledByAuthor: boolean;
-  /** Media content — present only for image or video posts */
+  /** Media content — single image/video OR multi-image carousel */
   content?: {
-    media: {
+    media?: {
       /** LinkedIn asset URN (from upload API) */
       id: string;
       /** Alt text for the media */
       altText?: string;
+    };
+    multiImage?: {
+      images: Array<{
+        id: string;
+        altText?: string;
+      }>;
     };
   };
 }

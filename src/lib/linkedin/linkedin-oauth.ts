@@ -170,8 +170,10 @@ interface CreatePostOptions {
   visibility?: 'PUBLIC' | 'CONNECTIONS';
   /** Type of media to attach */
   mediaType?: PostMediaType;
-  /** LinkedIn media asset URN (from uploadImageToLinkedIn / uploadVideoToLinkedIn) */
+  /** LinkedIn media asset URN (single image/video) */
   mediaAssetUrn?: string;
+  /** LinkedIn media asset URNs (multi-image carousel) */
+  mediaAssetUrns?: string[];
   /** Alt text for the media */
   mediaAltText?: string;
 }
@@ -198,7 +200,17 @@ export async function createLinkedInPost(opts: CreatePostOptions): Promise<strin
   };
 
   // Attach media if provided
-  if (opts.mediaAssetUrn && opts.mediaType && opts.mediaType !== 'text') {
+  if (opts.mediaAssetUrns && opts.mediaAssetUrns.length > 1 && (opts.mediaType === 'image' || opts.mediaType === 'html')) {
+    // Multi-image carousel post
+    payload.content = {
+      multiImage: {
+        images: opts.mediaAssetUrns.map(urn => ({
+          id: urn,
+          altText: opts.mediaAltText,
+        })),
+      },
+    };
+  } else if (opts.mediaAssetUrn && opts.mediaType && opts.mediaType !== 'text') {
     payload.content = {
       media: {
         id: opts.mediaAssetUrn,

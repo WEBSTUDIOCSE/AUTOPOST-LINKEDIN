@@ -51,6 +51,7 @@ export const PostService = {
     mediaPrompt?: string;
     linkedinMediaAsset?: string;
     htmlContent?: string;
+    pageCount?: number;
   }) {
     return firebaseHandler(async () => {
       const db = getAdminDb();
@@ -72,6 +73,7 @@ export const PostService = {
         mediaPrompt: data.mediaPrompt ?? null,
         linkedinMediaAsset: data.linkedinMediaAsset ?? null,
         htmlContent: data.htmlContent ?? null,
+        pageCount: data.pageCount ?? 1,
         editedContent: null,
         status: 'pending_review' as PostStatus,
         publishedAt: null,

@@ -26,6 +26,8 @@ export interface TextGenerationRequest {
   maxTokens?: number;
   /** Override the default SDK timeout (ms). Useful for large-output requests. */
   timeoutMs?: number;
+  /** Override the default text model for this specific request */
+  model?: string;
 }
 
 export interface TextGenerationResponse {

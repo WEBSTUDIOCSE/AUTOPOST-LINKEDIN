@@ -1,17 +1,15 @@
 /**
- * HTML Infographic Generator
+ * HTML Infographic Generator — Single-Page (Viewport-Sliced Carousel)
  *
- * Asks the AI to produce a self-contained HTML infographic for a topic.
- * The HTML is stored in Firestore and rendered in an iframe for preview.
- * At publish time the client converts HTML → PNG via html2canvas.
- *
- * Supports optional template reference: when a template is provided, the AI
- * matches its visual style (colors, fonts, layout patterns, dimensions).
+ * Generates ONE self-contained HTML document. For multi-page carousels, the AI
+ * produces a single tall document with enough content for N pages. The client
+ * then slices it into fixed-height viewport regions and captures each region as
+ * a separate PNG for the LinkedIn carousel.
  *
  * KEY RULES FOR THE AI:
  *   - All CSS must be embedded (inline <style>)
  *   - No JavaScript (sandboxed iframe)
- *   - Self-contained: one complete HTML document
+ *   - Self-contained: complete HTML document
  *
  * SERVER-ONLY
  */
@@ -39,58 +37,58 @@ export interface HtmlGenOptions {
    * - Omitted entirely — defaults to 1080×1080 (square).
    */
   dimensions?: { width: number; height?: number };
+  /**
+   * Number of carousel pages (1 = single card, 2-9 = multi-page carousel).
+   * When > 1: AI generates one tall document with enough content for N pages.
+   * The client slices it into fixed-height viewport regions at capture time.
+   */
+  pageCount?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROMPT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number | null): string {
-  const sizeCSS = h
-    ? `html, body { margin: 0; padding: 0; width: ${w}px; height: ${h}px; overflow: hidden; }`
-    : `html, body { margin: 0; padding: 0; width: ${w}px; overflow: visible; }`;
-  const containerRule = h
-    ? `Outer container: EXACTLY width:${w}px; height:${h}px; overflow:hidden; margin:0; padding:0 on html and body.`
-    : `Outer container: EXACTLY width:${w}px on html and body. Height is AUTO — let content determine natural height. Do NOT set a fixed height or overflow:hidden on body.`;
+function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number | null, pageCount: number): string {
+  const isMultiPage = pageCount > 1;
+  const pageH = h ?? w; // Default page height = width (square)
+  const totalH = isMultiPage ? pageH * pageCount : (h ?? w);
 
-  return `You are both a world-class web designer AND a deep technical expert on the given topic. Generate a single, self-contained HTML card that explains the topic with expert-level depth and stunning visual design.
+  const sizeRule = `html,body{margin:0;padding:0;width:${w}px;height:${totalH}px;overflow:hidden;}`;
 
-CONTENT STANDARD — this is the most important requirement:
-- Write like a senior engineer explaining to other senior engineers. Go deep.
-- Cover the topic with REAL substance: what it is, why it exists, how it works, key concepts, real-world trade-offs.
-- Use MULTIPLE content sections (3-5), each with a clear heading, 2-4 sentences of explanation, and supporting detail (lists, code, comparisons).
-- Include at least ONE real, runnable code or command example with syntax highlighting using colored spans.
-- Every claim must be accurate and specific. No vague filler. No oversimplifications.
-- Do NOT write carousel-style bullet fragments like "Fast performance" — write actual explanations.
-- Code examples MUST use real commands/APIs (e.g. npx create-next-app@latest). Never invent fictional names.
+  const contentGuide = isMultiPage
+    ? `Create a SINGLE HTML document that teaches this topic across ${pageCount} visual sections. Each section should fill exactly ${pageH}px of vertical space (total height: ${totalH}px).
 
-DESIGN REQUIREMENTS:
-1. Complete HTML document (<!DOCTYPE html> through </html>). NEVER stop mid-document.
-2. ALL styling in a single <style> block. NO external CSS, NO CDN links, NO <script> tags.
-3. CSS shorthand ALWAYS. Inline style="" for one-off values. Reuse classes. No boilerplate resets beyond box-sizing:border-box.
-4. Design MUST be stunning — dark theme:
-   - Background: #0d1117 with a dot-matrix pattern: background-image:radial-gradient(circle,#30363d 2px,transparent 2px); background-size:32px 32px;
-   - Header bar (macOS-style title bar): bg #161b22, three colored dots (red #ff5f56, yellow #ffbd2e, green #27c93f), monospace filename in center.
-   - Content area: cards with bg #161b22, border 1px solid #30363d, border-radius 12px.
-   - Footer/terminal bar: bg #0a0d12, border-top #30363d, monospace terminal prompt + real relevant command output.
-   - Fonts: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif for body; monospace for code.
-   - Accent colors: #79c0ff (cyan), #7ee787 (green), #ff7b72 (pink/red), #F7DF1E (yellow), #8b949e (comment gray).
-   - Rounded cards, subtle glows (box-shadow with rgba), no backdrop-filter.
-5. ${containerRule}
-6. ${sizeCSS}
-7. STRUCTURE (use this layout):
-   - Title bar at top (macOS dots + filename)
-   - Scrollable/full content area with 3-5 sections
-   - Terminal footer at bottom
-8. DO NOT include any carousel text ("Swipe Next", "Swipe Right", etc.).
-9. The terminal footer line MUST show a real, relevant shell command for this topic — not "swipe right".
+CONTENT — spread across ${pageCount} sections (each ${w}×${pageH}px):
+- Section 1 (0-${pageH}px): Title section — topic name, a compelling one-liner, and striking visual design.
+${pageCount > 2 ? `- Sections 2-${pageCount - 1} (${pageH}-${pageH * (pageCount - 1)}px): Deep-dive sections — each covers ONE concept with heading, 2-4 sentences, and optional code/diagram.` : `- Section 2 (${pageH}-${totalH}px): Deep-dive — cover the main concept with heading, explanation, code/diagram.`}
+- Last section (${pageH * (pageCount - 1)}-${totalH}px): Summary/takeaway — key points recap, a call-to-action.
+
+IMPORTANT: Content MUST fill all ${totalH}px of vertical space evenly. Each section should be visually distinct but flow naturally. Avoid cramming or leaving large empty gaps.`
+    : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
+
+CONTENT — Most important:
+Explain the topic the way a leading expert would. Include:
+- A clear title and compelling intro
+- 2-4 key concepts with headings and explanations
+- Optional code snippets or diagrams
+- A takeaway or call-to-action`;
+
+  return `You are a world-class expert in the field of "${topic}". ${contentGuide}
+
+DESIGN — Full creative freedom. Pick a cohesive theme, color palette, and layout that suits this topic.
+
+TECHNICAL RULES (strict):
+- Output a SINGLE complete HTML document (<!DOCTYPE html> through </html>).
+- All CSS in one <style> block. No external CSS, no CDN links, no <script> tags.
+- No backdrop-filter. Use box-shadow for depth instead.
+- CSS: ${sizeRule}
+- Content MUST fit within the dimensions. Do NOT let text overflow or get cut off.
 
 TOPIC: ${topic}
+CONTEXT: ${snippet}
 
-POST CONTEXT (use as your content foundation — expand on these points with expert depth):
-${snippet}
-
-OUTPUT: Return ONLY the complete HTML document. No markdown fencing, no explanation.`;
+Return ONLY the complete HTML document. No markdown, no explanation.`;
 }
 
 /**
@@ -159,61 +157,64 @@ function buildTemplatePrompt(
   templateHtml: string,
   w: number,
   h: number | null,
+  pageCount: number,
 ): string {
-  // Strip CSS/scripts — keep the full HTML structure so the AI sees every
-  // section (title bar, content area, footer, terminal bar, etc.).
-  // This is far more reliable than character-count truncation which may cut
-  // the template before the footer is reached.
-  const templateRef = stripTemplateForReference(templateHtml);
+  // Strip CSS/scripts — keep the HTML structure so the AI sees key sections.
+  // Hard-cap at 2000 chars to prevent oversized prompts causing Gemini 500s.
+  const stripped = stripTemplateForReference(templateHtml);
+  const templateRef = stripped.length > 2000
+    ? stripped.slice(0, 2000) + '\n<!-- [truncated for brevity] -->'
+    : stripped;
 
-  const sizeCSS = h
-    ? `html, body { margin: 0; padding: 0; width: ${w}px; height: ${h}px; overflow: hidden; }`
-    : `html, body { margin: 0; padding: 0; width: ${w}px; overflow: visible; }`;
-  const containerRule = h
-    ? `Outer container: EXACTLY width:${w}px; height:${h}px; overflow:hidden.`
-    : `Outer container: EXACTLY width:${w}px. Height is AUTO — let the content determine the natural height. Do NOT set a fixed height. Do NOT set overflow:hidden on body.`;
+  const isMultiPage = pageCount > 1;
+  const pageH = h ?? w;
+  const totalH = isMultiPage ? pageH * pageCount : (h ?? w);
 
-  return `You are both a world-class web designer AND a deep technical expert on the given topic. Generate a single, self-contained HTML card that explains the topic with expert-level depth.
+  const sizeCSS = `html, body { margin: 0; padding: 0; width: ${w}px; height: ${totalH}px; overflow: hidden; }`;
 
-TEMPLATE STRUCTURE RULES (non-negotiable):
-- The BACKGROUND must match: use the exact background-color and decorative CSS from the DECORATIVE CSS hint.
-- The HEADER/TITLE BAR must match: reproduce the same macOS-style title bar (three colored dots, monospace filename in center) from the template structure.
-- The FOOTER/TERMINAL BAR must match: reproduce the same terminal bar at the bottom with the same styling from the template structure.
-- The main CONTENT AREA between header and footer: you are FREE to design this however you want. Do not copy the template content layout — make something great.
-- Use the exact hex colors from TEMPLATE COLOR PALETTE for all backgrounds, borders, text, and accents.
+  const contentGuide = isMultiPage
+    ? `Create a SINGLE HTML document that teaches this topic across ${pageCount} visual sections. Each section should fill exactly ${pageH}px of vertical space (total height: ${totalH}px).
 
-CONTENT STANDARD — write with expert depth:
-- Write like a senior engineer explaining to other senior engineers. Go deep.
-- Cover the topic with REAL substance: what it is, why it exists, how it works, key concepts, real-world trade-offs.
-- Use MULTIPLE content sections (3-5), each with a clear heading, 2-4 sentences of explanation, and supporting detail.
-- Include at least ONE real, runnable code or command example with syntax highlighting using colored spans.
-- Every claim must be accurate and specific. No vague filler. No oversimplifications.
-- Code examples MUST use real commands/APIs. NEVER invent fictional component names or function names.
-- The terminal footer line MUST show a real, relevant shell command for the topic. Do NOT write "swipe right" or carousel text.
+CONTENT — spread across ${pageCount} sections (each ${w}×${pageH}px):
+- Section 1 (0-${pageH}px): Title section — topic name, a compelling one-liner.
+${pageCount > 2 ? `- Sections 2-${pageCount - 1} (${pageH}-${pageH * (pageCount - 1)}px): Deep-dive sections — each covers ONE concept with heading, 2-4 sentences, and optional code.` : `- Section 2 (${pageH}-${totalH}px): Deep-dive — cover the main concept with heading, explanation, code/diagram.`}
+- Last section (${pageH * (pageCount - 1)}-${totalH}px): Summary/takeaway — key points, a call-to-action.
 
-STRICT TECHNICAL REQUIREMENTS:
-1. COMPLETE DOCUMENT — You MUST output a complete HTML document from <!DOCTYPE html> to </html>. NEVER stop mid-document.
-2. ALL styling in a single <style> block inside <head>. NO external stylesheets, NO CDN links, NO <script> tags.
-3. Convert any Tailwind classes or Google Fonts from the template to plain CSS. Zero external dependencies.
-4. CSS MUST BE COMPACT:
-   - CSS shorthand ALWAYS. Inline style="" for one-off values. Never repeat a rule.
-   - For decorative effects use the DECORATIVE CSS comment above — copy those rules as-is.
-   - Do NOT use backdrop-filter or -webkit-backdrop-filter (breaks screenshot tools).
-5. ${containerRule}
-6. Add this CSS: ${sizeCSS}
-7. DO NOT include any "Swipe Next", "Swipe Right", or carousel navigation text.
+IMPORTANT: Content MUST fill all ${totalH}px of vertical space evenly. Each section should be visually distinct but flow naturally.`
+    : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
 
-TEMPLATE (CSS/scripts stripped — copy the bg, header, and footer structure exactly; design the content area freely):
+CONTENT:
+- A clear title and compelling intro
+- 2-4 key concepts with headings and explanations
+- Optional code snippets
+- A takeaway or call-to-action`;
+
+  return `You are a world-class expert in the field of "${topic}". ${contentGuide}
+
+TEMPLATE RULES (copy ONLY these three things from the template — nothing else):
+1. BACKGROUND: use the exact background color + decorative pattern from the DECORATIVE CSS hint.
+2. HEADER: reproduce the header/title bar structure exactly (same style, same layout).
+3. FOOTER: reproduce the footer/terminal bar structure exactly (same style, same layout).
+Everything between header and footer is YOUR creative space — design it freely.
+
+DESIGN — All sections share the template's bg + header + footer. Content area layout is your creative space.
+
+TECHNICAL RULES (strict):
+- Output a SINGLE complete HTML document (<!DOCTYPE html> through </html>).
+- All CSS in one <style> block. Convert Tailwind/Google Fonts to plain CSS. No CDN links, no <script> tags.
+- No backdrop-filter. Use box-shadow for depth instead.
+- CSS: ${sizeCSS}
+- Content MUST fit within the dimensions. Do NOT let text overflow or get cut off.
+
+TEMPLATE (structure reference — bg + header + footer only):
 ${'```html'}
 ${templateRef}
 ${'```'}
 
 TOPIC: ${topic}
+CONTEXT: ${snippet}
 
-POST CONTEXT (use as your content foundation — expand on these points with expert depth):
-${snippet}
-
-OUTPUT: Return ONLY the complete HTML document. No markdown fencing, no explanation.`;
+Return ONLY the complete HTML document. No markdown, no explanation.`;
 }
 
 function buildHtmlPrompt(
@@ -221,17 +222,18 @@ function buildHtmlPrompt(
   postContent: string,
   templateHtml?: string,
   dimensions?: { width: number; height?: number },
+  pageCount: number = 1,
 ): string {
-  // 1200 chars — enough context for the AI to write expert-level detailed sections
-  const snippet = postContent.slice(0, 1200);
+  // 700 chars — enough context without overloading the prompt (reduces 504 risk)
+  const snippet = postContent.slice(0, 700);
   const w = dimensions?.width ?? 1080;
   // height 0 or undefined = auto (null signals auto to prompt builders)
   const h = (dimensions?.height && dimensions.height > 0) ? dimensions.height : null;
 
   if (templateHtml) {
-    return buildTemplatePrompt(topic, snippet, templateHtml, w, h ?? 1080);
+    return buildTemplatePrompt(topic, snippet, templateHtml, w, h ?? w, pageCount);
   }
-  return buildDefaultPrompt(topic, snippet, w, h ?? 1080);
+  return buildDefaultPrompt(topic, snippet, w, h ?? w, pageCount);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -239,22 +241,31 @@ function buildHtmlPrompt(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Clean up AI response — strip markdown fences, validate it's HTML.
+ * Clean up AI response — strip markdown fences, validate it contains HTML.
+ * Returns a single complete HTML document.
  */
 function parseHtmlResponse(raw: string): string {
-  let html = raw.trim();
+  let text = raw.trim();
 
   // Strip markdown code blocks  
-  if (html.startsWith('```')) {
-    html = html.replace(/^```(?:html)?\n?/, '').replace(/\n?```$/, '');
+  if (text.startsWith('```')) {
+    text = text.replace(/^```(?:html)?\n?/, '').replace(/\n?```$/, '');
   }
 
   // Basic sanity check
-  if (!html.includes('<!DOCTYPE html') && !html.includes('<html')) {
+  if (!text.includes('<!DOCTYPE html') && !text.includes('<html')) {
     throw new Error('[html-gen] AI did not return valid HTML');
   }
 
-  return html;
+  // If the AI generated multiple <!DOCTYPE html> blocks, keep only the first one
+  // (We asked for a single document, but the AI might produce extras)
+  const parts = text.split(/(?=<!DOCTYPE html)/i).filter(p => p.trim().length > 100);
+  if (parts.length > 1) {
+    console.warn(`[html-gen] AI returned ${parts.length} HTML documents — using first one only`);
+    return parts[0].trim();
+  }
+
+  return text;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -287,6 +298,7 @@ export async function generateHtmlCard(
   let actualContent: string;
   let templateHtml: string | undefined;
   let dimensions: { width: number; height?: number } | undefined;
+  let pageCount: number = 1;
 
   if (topic !== undefined && postContent !== undefined) {
     // Old 3-arg call
@@ -301,18 +313,33 @@ export async function generateHtmlCard(
     actualContent = opts.postContent;
     templateHtml = opts.templateHtml;
     dimensions = opts.dimensions;
+    pageCount = opts.pageCount ?? 1;
   }
 
-  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions);
+  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions, pageCount);
 
-  const result = await adapter.generateText({
-    prompt,
-    systemInstruction: 'You are an HTML generator. Output ONLY a complete, valid HTML document. No markdown, no explanation. RULE #1: Always finish the ENTIRE document — the last line MUST be </html>. If you are running low on space, immediately close all open tags and end the document rather than adding more CSS or content. A complete-but-simple card is far better than a beautiful-but-truncated one.',
-    temperature: 0.5,
-    // No maxTokens cap — let the model use its full native output capacity.
-    // The HTML prompt already instructs compact CSS to stay within limits.
-    timeoutMs: 120_000, // 2 min — HTML output is large
-  });
-
-  return parseHtmlResponse(result.text);
+  // Retry up to 3 times on transient 504 / DEADLINE_EXCEEDED errors
+  const MAX_ATTEMPTS = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await adapter.generateText({
+        prompt,
+        systemInstruction: `You are an HTML generator that creates professional infographic-style HTML documents. Output ONLY a single complete HTML document from <!DOCTYPE html> to </html>. No markdown, no explanation. Content must fit within the specified dimensions — never let text overflow or get cut off.`,
+        temperature: 0.5,
+        timeoutMs: 120_000, // 2 min — HTML output is large
+      });
+      return parseHtmlResponse(result.text);
+    } catch (err) {
+      lastError = err;
+      const msg = String(err);
+      const isRetryable = msg.includes('504') || msg.includes('DEADLINE_EXCEEDED') || msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('500') || msg.includes('INTERNAL');
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
+      // Exponential backoff: 3s, 6s
+      const delay = attempt * 3_000;
+      console.warn(`[html-gen] Gemini ${isRetryable ? '504/503' : 'error'} on attempt ${attempt}/${MAX_ATTEMPTS} — retrying in ${delay / 1000}s…`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
 }

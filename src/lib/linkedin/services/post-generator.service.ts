@@ -125,6 +125,7 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         postContent: content,
         templateHtml: context.templateHtml,
         dimensions: context.templateDimensions,
+        pageCount: context.pageCount,
       });
     } catch (htmlErr) {
       mediaGenerationError = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);

@@ -16,7 +16,7 @@ import {
   CheckCircle2, XCircle, RotateCcw, PenLine, Send, Clock,
   SkipForward, AlertCircle, Eye, FileText, Image as ImageIcon, Video, Code2,
   Sparkles, Zap, CalendarClock, Loader2, Settings2, ChevronDown, ChevronUp,
-  Trash2,
+  Trash2, Maximize2, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -169,6 +169,156 @@ function HtmlPreview({ html, className }: { html: string; className?: string }) 
   );
 }
 
+// ── HTML Fullscreen Dialog ────────────────────────────────────────────────────
+
+/**
+ * Opens the HTML card in a new browser tab using a blob URL.
+ * The browser handles scrolling, zoom, and layout naturally.
+ */
+function HtmlOpenInTab({ html }: { html: string }) {
+  const handleOpen = useCallback(() => {
+    // Inject a scroll-override so fixed-height/overflow:hidden cards become scrollable in the tab
+    const scrollOverride = `<style id="__tab-scroll-override__">
+html, body {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow: auto !important;
+}
+</style>`;
+    const patched = html.includes('</head>')
+      ? html.replace('</head>', `${scrollOverride}</head>`)
+      : scrollOverride + html;
+    const blob = new Blob([patched], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank', 'noopener');
+    // Revoke after a short delay to let the tab load
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  }, [html]);
+
+  return (
+    <Button variant="outline" size="sm" onClick={handleOpen} title="Open in new tab">
+      <Maximize2 className="h-3.5 w-3.5 mr-1.5" />
+      View Full Size
+    </Button>
+  );
+}
+
+// ── HTML Carousel Preview (multi-page viewport slicing) ──────────────────────
+
+/**
+ * Renders a multi-page HTML carousel using viewport-clipping.
+ * One iframe renders the full tall document; CSS clip/transform shows one page at a time.
+ * Falls back to a single HtmlPreview if pageCount <= 1.
+ */
+function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlContent: string; pageCount?: number; className?: string }) {
+  const [page, setPage] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [scale, setScale] = useState(0);
+
+  const { width: designW } = useMemo(() => parseHtmlDimensions(htmlContent), [htmlContent]);
+  const pageH = designW; // Square pages
+  const totalPages = Math.max(1, pageCount);
+
+  // Reset page when content changes
+  useEffect(() => { setPage(0); }, [htmlContent]);
+
+  // Scale to fit container
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const updateScale = () => setScale(el.clientWidth / designW);
+    updateScale();
+    const ro = new ResizeObserver(updateScale);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [designW]);
+
+  // Single page — use simple HtmlPreview
+  if (totalPages <= 1) {
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">HTML Card</span>
+          <HtmlOpenInTab html={htmlContent} />
+        </div>
+        <HtmlPreview html={htmlContent} className={className} />
+      </div>
+    );
+  }
+
+  const containerH = scale > 0 ? Math.ceil(pageH * scale) : 300;
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+          Slide {page + 1} of {totalPages}
+        </span>
+        <HtmlOpenInTab html={htmlContent} />
+      </div>
+      <div className="relative" ref={containerRef}>
+        <div
+          className={cn('rounded-lg border overflow-hidden bg-black', className)}
+          style={{ height: containerH, position: 'relative' }}
+        >
+          {scale > 0 && (
+            <iframe
+              ref={iframeRef}
+              srcDoc={htmlContent}
+              sandbox="allow-same-origin"
+              title="HTML Carousel Preview"
+              style={{
+                width: designW,
+                height: pageH * totalPages,
+                border: 'none',
+                transform: `scale(${scale}) translateY(-${page * pageH}px)`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+              }}
+            />
+          )}
+        </div>
+        {/* Navigation arrows */}
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute left-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-80 hover:opacity-100 shadow-md z-10"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full opacity-80 hover:opacity-100 shadow-md z-10"
+          onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+          disabled={page === totalPages - 1}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+      {/* Page dots */}
+      <div className="flex justify-center gap-1.5">
+        {Array.from({ length: totalPages }, (_, i) => (
+          <button
+            key={i}
+            className={cn(
+              'h-1.5 rounded-full transition-all',
+              i === page ? 'w-4 bg-primary' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50'
+            )}
+            onClick={() => setPage(i)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+
 /**
  * Capture HTML content as a PNG base64 string using html2canvas.
  * Reads dimensions from the HTML — supports both fixed-size and auto-height cards.
@@ -205,6 +355,63 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
         const dataUrl = canvas.toDataURL('image/png');
         const base64 = dataUrl.split(',')[1];
         resolve(base64);
+      } catch (err) {
+        reject(err);
+      } finally {
+        document.body.removeChild(iframe);
+      }
+    };
+
+    iframe.onerror = () => {
+      document.body.removeChild(iframe);
+      reject(new Error('Failed to load HTML in iframe'));
+    };
+
+    document.body.appendChild(iframe);
+  });
+}
+
+/**
+ * Capture multiple viewport-sliced pages from a single tall HTML document.
+ * Each page is captured at a different Y offset, producing square PNG images.
+ *
+ * @param html     - The full HTML content (single tall document)
+ * @param pageCount - Number of pages to capture
+ * @returns Array of base64-encoded PNG strings
+ */
+async function captureHtmlPages(html: string, pageCount: number): Promise<string[]> {
+  const { width: designW } = parseHtmlDimensions(html);
+  const pageH = designW; // Square pages
+  const totalH = pageH * pageCount;
+
+  return new Promise((resolve, reject) => {
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${totalH}px;border:none;`;
+    iframe.sandbox.add('allow-same-origin');
+    iframe.srcdoc = html;
+
+    iframe.onload = async () => {
+      try {
+        await new Promise(r => setTimeout(r, 300));
+
+        const body = iframe.contentDocument?.body;
+        if (!body) throw new Error('Cannot access iframe content');
+
+        const results: string[] = [];
+        for (let i = 0; i < pageCount; i++) {
+          const canvas = await html2canvas(body, {
+            width: designW,
+            height: pageH,
+            y: i * pageH,
+            scale: 2,
+            useCORS: true,
+            backgroundColor: '#0f172a',
+          });
+          const dataUrl = canvas.toDataURL('image/png');
+          results.push(dataUrl.split(',')[1]);
+        }
+
+        resolve(results);
       } catch (err) {
         reject(err);
       } finally {
@@ -278,6 +485,8 @@ interface GenerationFormData {
   mediaType: PostMediaType;
   // Template (for HTML content type)
   templateId: string;
+  // Page count (for HTML carousel)
+  pageCount: string;
   // Model control
   provider: TestProvider;
   textModel: string;
@@ -296,7 +505,7 @@ interface GenerationFormData {
 
 const DEFAULT_FORM: GenerationFormData = {
   topic: '', notes: '', seriesId: '', mediaType: 'html',
-  templateId: '',
+  templateId: '', pageCount: '1',
   provider: 'gemini',
   textModel: 'gemini-3.1-pro-preview',
   imageModel: getDefaultModel('gemini', 'image'),
@@ -415,6 +624,31 @@ function GenerationFields({
                   </span>
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      {/* Page Count — shown when HTML is selected */}
+      {form.mediaType === 'html' && (
+        <div className="space-y-1.5">
+          <Label>Pages <span className="text-xs text-muted-foreground">(1 = single card, 2+ = carousel)</span></Label>
+          <Select
+            value={form.pageCount}
+            onValueChange={(v) => setForm(f => ({ ...f, pageCount: v }))}
+            disabled={disabled}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 page (single card)</SelectItem>
+              <SelectItem value="2">2 pages</SelectItem>
+              <SelectItem value="3">3 pages</SelectItem>
+              <SelectItem value="4">4 pages</SelectItem>
+              <SelectItem value="5">5 pages</SelectItem>
+              <SelectItem value="6">6 pages</SelectItem>
+              <SelectItem value="7">7 pages</SelectItem>
+              <SelectItem value="8">8 pages</SelectItem>
+              <SelectItem value="9">9 pages</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -651,6 +885,7 @@ function buildModelPayload(form: GenerationFormData) {
   return {
     provider: form.provider || undefined,
     templateId: form.templateId || undefined,
+    pageCount: form.pageCount ? parseInt(form.pageCount) : 1,
     textModel: form.textModel || undefined,
     imageModel: form.mediaType === 'image' ? (form.imageModel || undefined) : undefined,
     videoModel: form.mediaType === 'video' ? (form.videoModel || undefined) : undefined,
@@ -681,7 +916,7 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
   const [form, setForm] = useState<GenerationFormData>({ ...DEFAULT_FORM });
 
   // After generation
-  const [draft, setDraft] = useState<{ postId: string; content: string; summary: string; mediaUrl?: string; htmlContent?: string } | null>(null);
+  const [draft, setDraft] = useState<{ postId: string; content: string; summary: string; mediaUrl?: string; htmlContent?: string; pageCount?: number } | null>(null);
   const [editedContent, setEditedContent] = useState('');
   const [editing, setEditing] = useState(false);
 
@@ -722,6 +957,7 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
         summary: data.data.summary,
         mediaUrl: data.data.media?.url,
         htmlContent: data.data.htmlContent,
+        pageCount: data.data.pageCount,
       });
       setEditedContent(data.data.content);
       setStep('review');
@@ -738,11 +974,18 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
     setPublishing(true);
     setError('');
     try {
-      // For HTML posts: convert the HTML to PNG on the client before publishing
+      // For HTML posts: capture as PNG on the client before publishing
       let imageBase64: string | undefined;
+      let imageBase64Array: string[] | undefined;
       if (form.mediaType === 'html' && draft.htmlContent) {
         try {
-          imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+          const pc = draft.pageCount ?? 1;
+          if (pc > 1) {
+            // Multi-page carousel: capture each viewport slice
+            imageBase64Array = await captureHtmlPages(draft.htmlContent, pc);
+          } else {
+            imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+          }
         } catch (captureErr) {
           setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
           setPublishing(false);
@@ -759,6 +1002,7 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
           action: 'publish',
           editedContent: contentToPublish !== draft.content ? contentToPublish : undefined,
           imageBase64,
+          imageBase64Array,
         }),
       });
       const data = await res.json();
@@ -847,7 +1091,7 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
             <div className="space-y-3 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
               {/* HTML card preview */}
               {draft.htmlContent && form.mediaType === 'html' && (
-                <HtmlPreview html={draft.htmlContent} />
+                <HtmlCarouselPreview htmlContent={draft.htmlContent} pageCount={draft.pageCount} />
               )}
 
               {/* Media preview (image / video) */}
@@ -922,7 +1166,7 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
 interface ScheduleDialogProps {
   seriesList: Series[];
   templates: HtmlTemplate[];
-  onCreated: (draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType }) => void;
+  onCreated: (draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType; pageCount?: number }) => void;
 }
 
 function ScheduleDialog({ seriesList, templates, onCreated }: ScheduleDialogProps) {
@@ -1055,7 +1299,7 @@ function ScheduleDialog({ seriesList, templates, onCreated }: ScheduleDialogProp
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface DraftResultDialogProps {
-  draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType } | null;
+  draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType; pageCount?: number } | null;
   onClose: () => void;
   onRefresh: () => void;
 }
@@ -1078,11 +1322,17 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: convert HTML→PNG client-side first
+      // For publish action on HTML posts: capture HTML→PNG client-side first
       let imageBase64: string | undefined;
+      let imageBase64Array: string[] | undefined;
       if (action === 'publish' && draft.mediaType === 'html' && draft.htmlContent) {
         try {
-          imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+          const pc = draft.pageCount ?? 1;
+          if (pc > 1) {
+            imageBase64Array = await captureHtmlPages(draft.htmlContent, pc);
+          } else {
+            imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
+          }
         } catch (captureErr) {
           setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
           setBusy(false);
@@ -1093,7 +1343,7 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: draft.postId, action, editedContent: c, imageBase64 }),
+        body: JSON.stringify({ postId: draft.postId, action, editedContent: c, imageBase64, imageBase64Array }),
       });
       const data = await res.json();
       if (!data.success && data.error) { setError(data.error); setBusy(false); return; }
@@ -1118,7 +1368,7 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
         <div className="space-y-3 py-2">
           {/* HTML card preview */}
           {draft.htmlContent && draft.mediaType === 'html' && (
-            <HtmlPreview html={draft.htmlContent} />
+            <HtmlCarouselPreview htmlContent={draft.htmlContent} pageCount={draft.pageCount} />
           )}
 
           {draft.summary && (
@@ -1208,11 +1458,17 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: convert HTML→PNG client-side first
+      // For publish action on HTML posts: capture viewport slices → PNG client-side first
       let imageBase64: string | undefined;
+      let imageBase64Array: string[] | undefined;
       if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
         try {
-          imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+          const pc = post.pageCount ?? 1;
+          if (pc > 1) {
+            imageBase64Array = await captureHtmlPages(post.htmlContent, pc);
+          } else {
+            imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+          }
         } catch (captureErr) {
           setError(`Failed to capture HTML card as image: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
           setBusy(false);
@@ -1223,7 +1479,7 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: post.id, action, editedContent: content, imageBase64 }),
+        body: JSON.stringify({ postId: post.id, action, editedContent: content, imageBase64, imageBase64Array }),
       });
       const data = await res.json();
       if (!data.success && data.error) setError(data.error);
@@ -1245,8 +1501,8 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
           <Eye className="h-3.5 w-3.5" /><span className="sr-only">View post</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90dvh]">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="pr-8">{post.topic}</DialogTitle>
           <DialogDescription className="flex items-center gap-1.5">
             {formatDateTime(post.scheduledFor)}
@@ -1255,10 +1511,10 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
           {/* HTML preview */}
           {post.htmlContent && post.mediaType === 'html' && (
-            <HtmlPreview html={post.htmlContent} />
+            <HtmlCarouselPreview htmlContent={post.htmlContent} pageCount={post.pageCount} />
           )}
 
           {/* Media preview (image when mediaUrl exists but no htmlContent, or video) */}
@@ -1276,7 +1532,7 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
           {editing ? (
             <Textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={14} className="font-mono text-sm resize-none" disabled={busy} />
           ) : (
-            <div className="rounded-lg border bg-secondary/30 p-4 max-h-[60vh] overflow-y-auto">
+            <div className="rounded-lg border bg-secondary/30 p-4">
               <p className="text-sm leading-relaxed whitespace-pre-line">{displayContent}</p>
             </div>
           )}
@@ -1371,11 +1627,17 @@ function PostCard({ post, onAction }: PostCardProps) {
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: convert HTML→PNG client-side first
+      // For publish action on HTML posts: capture viewport slices → PNG client-side first
       let imageBase64: string | undefined;
+      let imageBase64Array: string[] | undefined;
       if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
         try {
-          imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+          const pc = post.pageCount ?? 1;
+          if (pc > 1) {
+            imageBase64Array = await captureHtmlPages(post.htmlContent, pc);
+          } else {
+            imageBase64 = await captureHtmlAsBase64(post.htmlContent);
+          }
         } catch (captureErr) {
           setError(`Failed to capture HTML card: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
           setBusy(false);
@@ -1386,7 +1648,7 @@ function PostCard({ post, onAction }: PostCardProps) {
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId: post.id, action, imageBase64 }),
+        body: JSON.stringify({ postId: post.id, action, imageBase64, imageBase64Array }),
       });
       const data = await res.json();
       if (!data.success && data.error) setError(data.error);
@@ -1544,7 +1806,7 @@ export default function PostsClient() {
   const [seriesList, setSeriesList] = useState<Series[]>([]);
   const [templates, setTemplates] = useState<HtmlTemplate[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newDraft, setNewDraft] = useState<{ postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType } | null>(null);
+  const [newDraft, setNewDraft] = useState<{ postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType; pageCount?: number } | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
