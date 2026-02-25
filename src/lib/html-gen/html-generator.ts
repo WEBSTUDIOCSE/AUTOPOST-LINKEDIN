@@ -1,15 +1,20 @@
 /**
- * HTML Infographic Generator — Single-Page (Viewport-Sliced Carousel)
+ * HTML Infographic Generator — Single-Document Carousel
  *
- * Generates ONE self-contained HTML document. For multi-page carousels, the AI
- * produces a single tall document with enough content for N pages. The client
- * then slices it into fixed-height viewport regions and captures each region as
- * a separate PNG for the LinkedIn carousel.
+ * For single-page posts: generates ONE self-contained HTML document (1080×1080).
+ * For multi-page carousels (pageCount > 1): generates ONE tall HTML document
+ * in a single API call. The total height = width × pageCount. The AI lays out
+ * content in visual sections (each section = one square page). No scrolling —
+ * overflow is hidden.
+ *
+ * At preview time the client viewport-slices the tall document (translateY).
+ * At publish time each section is captured as a separate PNG via Y-offset
+ * and uploaded as a LinkedIn multi-image carousel.
  *
  * KEY RULES FOR THE AI:
  *   - All CSS must be embedded (inline <style>)
  *   - No JavaScript (sandboxed iframe)
- *   - Self-contained: complete HTML document
+ *   - Content must fit — overflow: hidden
  *
  * SERVER-ONLY
  */
@@ -39,8 +44,8 @@ export interface HtmlGenOptions {
   dimensions?: { width: number; height?: number };
   /**
    * Number of carousel pages (1 = single card, 2-9 = multi-page carousel).
-   * When > 1: AI generates one tall document with enough content for N pages.
-   * The client slices it into fixed-height viewport regions at capture time.
+   * When > 1: AI generates ONE tall document (height = width × pageCount).
+   * The client viewport-slices it for preview and Y-offset captures for images.
    */
   pageCount?: number;
 }
@@ -49,22 +54,18 @@ export interface HtmlGenOptions {
 // PROMPT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number | null, pageCount: number): string {
-  const isMultiPage = pageCount > 1;
-  const pageH = h ?? w; // Default page height = width (square)
-  const totalH = isMultiPage ? pageH * pageCount : (h ?? w);
+function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number, pageCount: number): string {
+  const sizeRule = `html,body{margin:0;padding:0;width:${w}px;height:${h}px;overflow:hidden;}`;
 
-  const sizeRule = `html,body{margin:0;padding:0;width:${w}px;height:${totalH}px;overflow:hidden;}`;
+  const contentGuide = pageCount > 1
+    ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
 
-  const contentGuide = isMultiPage
-    ? `Create a SINGLE HTML document that teaches this topic across ${pageCount} visual sections. Each section should fill exactly ${pageH}px of vertical space (total height: ${totalH}px).
+CONTENT — spread evenly across ${pageCount} sections:
+- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline. Keep text minimal.
+${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept with a heading, 2-4 sentences, and optional code/diagram.` : ''}
+- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
 
-CONTENT — spread across ${pageCount} sections (each ${w}×${pageH}px):
-- Section 1 (0-${pageH}px): Title section — topic name, a compelling one-liner, and striking visual design.
-${pageCount > 2 ? `- Sections 2-${pageCount - 1} (${pageH}-${pageH * (pageCount - 1)}px): Deep-dive sections — each covers ONE concept with heading, 2-4 sentences, and optional code/diagram.` : `- Section 2 (${pageH}-${totalH}px): Deep-dive — cover the main concept with heading, explanation, code/diagram.`}
-- Last section (${pageH * (pageCount - 1)}-${totalH}px): Summary/takeaway — key points recap, a call-to-action.
-
-IMPORTANT: Content MUST fill all ${totalH}px of vertical space evenly. Each section should be visually distinct but flow naturally. Avoid cramming or leaving large empty gaps.`
+Each section MUST fill exactly ${w}px of vertical space. Content should be evenly distributed — no large empty gaps.`
     : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
 
 CONTENT — Most important:
@@ -156,31 +157,25 @@ function buildTemplatePrompt(
   snippet: string,
   templateHtml: string,
   w: number,
-  h: number | null,
+  h: number,
   pageCount: number,
 ): string {
-  // Strip CSS/scripts — keep the HTML structure so the AI sees key sections.
-  // Hard-cap at 2000 chars to prevent oversized prompts causing Gemini 500s.
   const stripped = stripTemplateForReference(templateHtml);
   const templateRef = stripped.length > 2000
     ? stripped.slice(0, 2000) + '\n<!-- [truncated for brevity] -->'
     : stripped;
 
-  const isMultiPage = pageCount > 1;
-  const pageH = h ?? w;
-  const totalH = isMultiPage ? pageH * pageCount : (h ?? w);
+  const sizeCSS = `html, body { margin: 0; padding: 0; width: ${w}px; height: ${h}px; overflow: hidden; }`;
 
-  const sizeCSS = `html, body { margin: 0; padding: 0; width: ${w}px; height: ${totalH}px; overflow: hidden; }`;
+  const contentGuide = pageCount > 1
+    ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
 
-  const contentGuide = isMultiPage
-    ? `Create a SINGLE HTML document that teaches this topic across ${pageCount} visual sections. Each section should fill exactly ${pageH}px of vertical space (total height: ${totalH}px).
+CONTENT — spread evenly across ${pageCount} sections:
+- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline.
+${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept with a heading, 2-4 sentences, and optional code.` : ''}
+- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
 
-CONTENT — spread across ${pageCount} sections (each ${w}×${pageH}px):
-- Section 1 (0-${pageH}px): Title section — topic name, a compelling one-liner.
-${pageCount > 2 ? `- Sections 2-${pageCount - 1} (${pageH}-${pageH * (pageCount - 1)}px): Deep-dive sections — each covers ONE concept with heading, 2-4 sentences, and optional code.` : `- Section 2 (${pageH}-${totalH}px): Deep-dive — cover the main concept with heading, explanation, code/diagram.`}
-- Last section (${pageH * (pageCount - 1)}-${totalH}px): Summary/takeaway — key points, a call-to-action.
-
-IMPORTANT: Content MUST fill all ${totalH}px of vertical space evenly. Each section should be visually distinct but flow naturally.`
+Each section MUST fill exactly ${w}px of vertical space. Content should be evenly distributed.`
     : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
 
 CONTENT:
@@ -197,7 +192,7 @@ TEMPLATE RULES (copy ONLY these three things from the template — nothing else)
 3. FOOTER: reproduce the footer/terminal bar structure exactly (same style, same layout).
 Everything between header and footer is YOUR creative space — design it freely.
 
-DESIGN — All sections share the template's bg + header + footer. Content area layout is your creative space.
+DESIGN — Match the template's bg + header + footer. Content area layout is your creative space.
 
 TECHNICAL RULES (strict):
 - Output a SINGLE complete HTML document (<!DOCTYPE html> through </html>).
@@ -227,13 +222,14 @@ function buildHtmlPrompt(
   // 700 chars — enough context without overloading the prompt (reduces 504 risk)
   const snippet = postContent.slice(0, 700);
   const w = dimensions?.width ?? 1080;
-  // height 0 or undefined = auto (null signals auto to prompt builders)
-  const h = (dimensions?.height && dimensions.height > 0) ? dimensions.height : null;
+  // For multi-page: total height = width × pageCount (square sections)
+  const baseH = (dimensions?.height && dimensions.height > 0) ? dimensions.height : w;
+  const h = pageCount > 1 ? w * pageCount : baseH;
 
   if (templateHtml) {
-    return buildTemplatePrompt(topic, snippet, templateHtml, w, h ?? w, pageCount);
+    return buildTemplatePrompt(topic, snippet, templateHtml, w, h, pageCount);
   }
-  return buildDefaultPrompt(topic, snippet, w, h ?? w, pageCount);
+  return buildDefaultPrompt(topic, snippet, w, h, pageCount);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -272,10 +268,43 @@ function parseHtmlResponse(raw: string): string {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const SYSTEM_INSTRUCTION = `You are an HTML generator that creates professional infographic-style HTML documents. Output ONLY a single complete HTML document from <!DOCTYPE html> to </html>. No markdown, no explanation. Content must fit within the specified dimensions — never let text overflow or get cut off.`;
+
+/**
+ * Generate HTML with retry logic (up to 3 attempts on transient errors).
+ */
+async function generateWithRetry(adapter: IAIAdapter, prompt: string): Promise<string> {
+  const MAX_ATTEMPTS = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const result = await adapter.generateText({
+        prompt,
+        systemInstruction: SYSTEM_INSTRUCTION,
+        temperature: 0.5,
+        timeoutMs: 120_000, // 2 min — tall multi-page docs need more time
+      });
+      return parseHtmlResponse(result.text);
+    } catch (err) {
+      lastError = err;
+      const msg = String(err);
+      const isRetryable = /504|DEADLINE_EXCEEDED|503|UNAVAILABLE|500|INTERNAL|TIMEOUT|timed out/.test(msg);
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
+      const delay = attempt * 3_000;
+      console.warn(`[html-gen] Transient error on attempt ${attempt}/${MAX_ATTEMPTS} — retrying in ${delay / 1000}s…`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
 /**
  * Generate a self-contained HTML infographic for a topic.
  *
- * @param opts — Generation options including adapter, topic, content, and optional template
+ * For single-page (pageCount=1): 1080×1080 square document.
+ * For multi-page (pageCount>1): ONE tall document (height = width × pageCount).
+ * The client viewport-slices it for preview and captures each section as a PNG.
+ *
  * @returns Complete HTML string ready to store in Firestore
  */
 export async function generateHtmlCard(opts: HtmlGenOptions): Promise<string>;
@@ -292,7 +321,6 @@ export async function generateHtmlCard(
   topic?: string,
   postContent?: string,
 ): Promise<string> {
-  // Normalise args — support both old 3-arg and new options-object signatures
   let adapter: IAIAdapter;
   let actualTopic: string;
   let actualContent: string;
@@ -301,12 +329,10 @@ export async function generateHtmlCard(
   let pageCount: number = 1;
 
   if (topic !== undefined && postContent !== undefined) {
-    // Old 3-arg call
     adapter = adapterOrOpts as IAIAdapter;
     actualTopic = topic;
     actualContent = postContent;
   } else {
-    // New options call
     const opts = adapterOrOpts as HtmlGenOptions;
     adapter = opts.adapter;
     actualTopic = opts.topic;
@@ -316,30 +342,8 @@ export async function generateHtmlCard(
     pageCount = opts.pageCount ?? 1;
   }
 
-  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions, pageCount);
+  console.log(`[html-gen] Generating ${pageCount > 1 ? `${pageCount}-page carousel` : 'single card'}…`);
 
-  // Retry up to 3 times on transient 504 / DEADLINE_EXCEEDED errors
-  const MAX_ATTEMPTS = 3;
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      const result = await adapter.generateText({
-        prompt,
-        systemInstruction: `You are an HTML generator that creates professional infographic-style HTML documents. Output ONLY a single complete HTML document from <!DOCTYPE html> to </html>. No markdown, no explanation. Content must fit within the specified dimensions — never let text overflow or get cut off.`,
-        temperature: 0.5,
-        timeoutMs: 120_000, // 2 min — HTML output is large
-      });
-      return parseHtmlResponse(result.text);
-    } catch (err) {
-      lastError = err;
-      const msg = String(err);
-      const isRetryable = msg.includes('504') || msg.includes('DEADLINE_EXCEEDED') || msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('500') || msg.includes('INTERNAL');
-      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
-      // Exponential backoff: 3s, 6s
-      const delay = attempt * 3_000;
-      console.warn(`[html-gen] Gemini ${isRetryable ? '504/503' : 'error'} on attempt ${attempt}/${MAX_ATTEMPTS} — retrying in ${delay / 1000}s…`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-  }
-  throw lastError;
+  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions, pageCount);
+  return generateWithRetry(adapter, prompt);
 }

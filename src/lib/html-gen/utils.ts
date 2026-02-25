@@ -5,16 +5,16 @@
  * No 'server-only' import here.
  */
 
-/** @deprecated Legacy delimiter — no longer used for new posts */
+/** Delimiter used to separate carousel pages stored as a single string. */
 export const PAGE_BREAK = '<!-- PAGE_BREAK -->';
 
-/** @deprecated Legacy helper — kept for backward compat with old posts that used PAGE_BREAK */
+/** Split a PAGE_BREAK-joined string back into individual HTML pages. */
 export function splitHtmlPages(htmlContent: string): string[] {
   const pages = htmlContent.split(PAGE_BREAK).map(p => p.trim()).filter(Boolean);
   return pages.length > 0 ? pages : [htmlContent];
 }
 
-/** @deprecated Legacy helper — kept for backward compat */
+/** Join an array of HTML page strings with the PAGE_BREAK delimiter. */
 export function joinHtmlPages(pages: string[]): string {
   return pages.join(`\n${PAGE_BREAK}\n`);
 }

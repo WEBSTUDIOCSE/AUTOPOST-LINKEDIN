@@ -9,8 +9,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/server';
 
-// HTML generation can take up to 2 minutes for large templates
-export const maxDuration = 150; // seconds
+// Multi-page carousel: up to 90s per page × 3 retries × N pages — allow 5 min
+export const maxDuration = 300; // seconds
 import { PostService } from '@/lib/linkedin/services/post.service';
 import { SeriesService } from '@/lib/linkedin/services/series.service';
 import { IdeaService } from '@/lib/linkedin/services/idea.service';
@@ -263,9 +263,12 @@ export async function POST(request: NextRequest) {
     });
   } catch (err) {
     console.error('[API /posts POST]', err);
+    // Always show a clean error — AIAdapterError messages are already sanitized
     const message = err instanceof Error ? err.message : String(err);
+    // Strip the [provider] prefix for cleaner display (e.g. "[gemini] ..." → "...")
+    const cleanMessage = message.replace(/^\[\w+\]\s*/, '');
     return NextResponse.json(
-      { error: process.env.NODE_ENV !== 'production' ? message : 'Failed to generate content' },
+      { error: cleanMessage || 'Failed to generate content' },
       { status: 500 },
     );
   }

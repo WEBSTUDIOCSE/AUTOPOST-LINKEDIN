@@ -203,17 +203,16 @@ html, body {
   );
 }
 
-// ── HTML Carousel Preview (multi-page viewport slicing) ──────────────────────
+// ── HTML Carousel Preview (viewport-slicing) ───────────────────────────────
 
 /**
- * Renders a multi-page HTML carousel using viewport-clipping.
- * One iframe renders the full tall document; CSS clip/transform shows one page at a time.
- * Falls back to a single HtmlPreview if pageCount <= 1.
+ * Renders a multi-page HTML carousel by viewport-slicing a single tall document.
+ * One iframe renders the full document; CSS translateY shows one page at a time.
+ * Falls back to a simple HtmlPreview if pageCount <= 1.
  */
 function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlContent: string; pageCount?: number; className?: string }) {
   const [page, setPage] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
   const [scale, setScale] = useState(0);
 
   const { width: designW } = useMemo(() => parseHtmlDimensions(htmlContent), [htmlContent]);
@@ -223,7 +222,7 @@ function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlCo
   // Reset page when content changes
   useEffect(() => { setPage(0); }, [htmlContent]);
 
-  // Scale to fit container
+  // Scale to fit container width
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -234,7 +233,7 @@ function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlCo
     return () => ro.disconnect();
   }, [designW]);
 
-  // Single page — use simple HtmlPreview
+  // Single page — simple preview
   if (totalPages <= 1) {
     return (
       <div className="space-y-2">
@@ -264,7 +263,6 @@ function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlCo
         >
           {scale > 0 && (
             <iframe
-              ref={iframeRef}
               srcDoc={htmlContent}
               sandbox="allow-same-origin"
               title="HTML Carousel Preview"
@@ -336,20 +334,23 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
 
     iframe.onload = async () => {
       try {
-        await new Promise(r => setTimeout(r, 200));
+        // Wait for CSS backgrounds / fonts to render fully
+        await new Promise(r => setTimeout(r, 500));
 
-        const body = iframe.contentDocument?.body;
-        if (!body) throw new Error('Cannot access iframe content');
+        const doc = iframe.contentDocument;
+        if (!doc?.documentElement) throw new Error('Cannot access iframe content');
 
         // For auto-height, use actual content height
-        const finalH = designH ?? (iframe.contentDocument!.documentElement.scrollHeight || capH);
+        const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
 
-        const canvas = await html2canvas(body, {
+        // Capture documentElement (not body) so html-level backgrounds
+        // (dot-matrix patterns, gradients) are included in the screenshot
+        const canvas = await html2canvas(doc.documentElement, {
           width: designW,
           height: finalH,
           scale: 2,
           useCORS: true,
-          backgroundColor: '#0f172a',
+          backgroundColor: null, // Use the actual HTML background
         });
 
         const dataUrl = canvas.toDataURL('image/png');
@@ -372,10 +373,10 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
 }
 
 /**
- * Capture multiple viewport-sliced pages from a single tall HTML document.
+ * Capture multiple square pages from a single tall HTML document.
  * Each page is captured at a different Y offset, producing square PNG images.
  *
- * @param html     - The full HTML content (single tall document)
+ * @param html      - The full tall HTML document
  * @param pageCount - Number of pages to capture
  * @returns Array of base64-encoded PNG strings
  */
@@ -392,20 +393,22 @@ async function captureHtmlPages(html: string, pageCount: number): Promise<string
 
     iframe.onload = async () => {
       try {
-        await new Promise(r => setTimeout(r, 300));
+        // Wait for CSS backgrounds / fonts to render fully
+        await new Promise(r => setTimeout(r, 500));
 
-        const body = iframe.contentDocument?.body;
-        if (!body) throw new Error('Cannot access iframe content');
+        const doc = iframe.contentDocument;
+        if (!doc?.documentElement) throw new Error('Cannot access iframe content');
 
         const results: string[] = [];
         for (let i = 0; i < pageCount; i++) {
-          const canvas = await html2canvas(body, {
+          // Capture documentElement so html-level backgrounds are included
+          const canvas = await html2canvas(doc.documentElement, {
             width: designW,
             height: pageH,
             y: i * pageH,
             scale: 2,
             useCORS: true,
-            backgroundColor: '#0f172a',
+            backgroundColor: null, // Use the actual HTML background
           });
           const dataUrl = canvas.toDataURL('image/png');
           results.push(dataUrl.split(',')[1]);
@@ -981,7 +984,6 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
         try {
           const pc = draft.pageCount ?? 1;
           if (pc > 1) {
-            // Multi-page carousel: capture each viewport slice
             imageBase64Array = await captureHtmlPages(draft.htmlContent, pc);
           } else {
             imageBase64 = await captureHtmlAsBase64(draft.htmlContent);
@@ -1627,7 +1629,7 @@ function PostCard({ post, onAction }: PostCardProps) {
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: capture viewport slices → PNG client-side first
+      // For publish action on HTML posts: capture pages → PNG client-side first
       let imageBase64: string | undefined;
       let imageBase64Array: string[] | undefined;
       if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {

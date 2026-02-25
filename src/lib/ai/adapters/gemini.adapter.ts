@@ -553,6 +553,18 @@ export class GeminiAdapter implements IAIAdapter {
    *   - Raw JSON blobs
    */
   private sanitizeMessage(message: string): string {
+    // Try to extract a human-readable message from raw Gemini JSON error responses
+    // e.g. {"error":{"code":504,"message":"Deadline expired...","status":"DEADLINE_EXCEEDED"}}
+    const jsonMatch = message.match(/\{\s*"error"\s*:\s*\{[^}]*"message"\s*:\s*"([^"]+)"[^}]*"status"\s*:\s*"([^"]+)"/);
+    if (jsonMatch) {
+      const [, errMsg, errStatus] = jsonMatch;
+      const codeMatch = message.match(/"code"\s*:\s*(\d+)/);
+      const code = codeMatch ? codeMatch[1] : '';
+      // Map to user-friendly messages
+      const friendly = this.friendlyErrorMessage(errStatus, errMsg, code);
+      if (friendly) return friendly;
+    }
+
     return message
       // Windows paths
       .replace(/[A-Za-z]:\\[^\s]*/g, '[path]')
@@ -563,11 +575,37 @@ export class GeminiAdapter implements IAIAdapter {
       // Other googleapis URLs
       .replace(/https?:\/\/[a-z-]+\.googleapis\.com[^\s]*/gi, '[internal-url]')
       // Model endpoint paths like /v1beta/models/gemini-...
-      .replace(/\/v\d+(?:beta\d*)?\/models\/[^\s]*/g, '[model-endpoint]')
+      .replace(/\/v\d+(?:beta\d*)?\/{1}models\/[^\s]*/g, '[model-endpoint]')
       // API key values that might leak in error messages
       .replace(/key=[A-Za-z0-9_-]{20,}/g, 'key=[redacted]')
+      // Raw JSON blobs — replace entirely
+      .replace(/\{\s*"error"\s*:\s*\{[\s\S]*?\}\s*\}/g, '[server error]')
       // Truncate
       .slice(0, 500);
+  }
+
+  /**
+   * Map Gemini error status codes to user-friendly messages.
+   */
+  private friendlyErrorMessage(status: string, _message: string, code: string): string | null {
+    switch (status) {
+      case 'DEADLINE_EXCEEDED':
+        return `Gemini server timed out (${code}). The model is overloaded — please try again in a few seconds, or use a faster model like gemini-2.5-flash.`;
+      case 'INTERNAL':
+        return `Gemini internal error (${code}). This is a temporary server issue — please try again.`;
+      case 'UNAVAILABLE':
+        return `Gemini is temporarily unavailable (${code}). Please wait a moment and try again.`;
+      case 'RESOURCE_EXHAUSTED':
+        return `Gemini rate limit reached (${code}). You've hit the free tier limit — wait 1-2 minutes or switch to a different model.`;
+      case 'INVALID_ARGUMENT':
+        return `Invalid request to Gemini (${code}). The prompt may be too long or contain unsupported content.`;
+      case 'PERMISSION_DENIED':
+        return `Gemini API key issue (${code}). Check that your API key is valid and has the required permissions.`;
+      case 'NOT_FOUND':
+        return `Gemini model not found (${code}). The selected model may not be available in your region or API plan.`;
+      default:
+        return null;
+    }
   }
 
   private sleep(ms: number): Promise<void> {

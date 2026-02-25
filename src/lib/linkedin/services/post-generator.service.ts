@@ -82,6 +82,28 @@ function buildAdapterConfig(ctx: PostGenerationContext): AIProviderConfig {
  *                  and optional provider/model/temperature/media overrides.
  * @returns The generated post content + summary + optional media
  */
+/**
+ * Retry a function up to 3 times on transient Gemini errors (504/503/500).
+ */
+async function retryOnTransient<T>(fn: () => Promise<T>, label: string): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      const msg = String(err);
+      const isRetryable = msg.includes('504') || msg.includes('DEADLINE_EXCEEDED') || msg.includes('503') || msg.includes('UNAVAILABLE') || msg.includes('500') || msg.includes('INTERNAL') || msg.includes('TIMEOUT') || msg.includes('timed out');
+      if (!isRetryable || attempt === MAX_ATTEMPTS) throw err;
+      const delay = attempt * 3_000;
+      console.warn(`[post-generator] ${label} failed (attempt ${attempt}/${MAX_ATTEMPTS}) — retrying in ${delay / 1000}s…`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
 export async function generatePostDraft(context: PostGenerationContext): Promise<GeneratedPost> {
   const config = buildAdapterConfig(context);
   const adapter = createAIAdapter(config);
@@ -89,25 +111,32 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
 
   // Temperature: user override > PromptService default
   const temperature = context.temperature ?? PromptService.getTemperature(mediaType);
-  const maxTokens = context.maxTokens ?? 1024;
+  const maxTokens = context.maxTokens ?? 4096;
 
-  // 1. Generate the main post text
-  const postResult = await adapter.generateText({
-    prompt: PromptService.buildUserPrompt(context),
-    systemInstruction: PromptService.buildSystemPrompt(mediaType, context.persona),
-    temperature,
-    maxTokens,
-  });
+  // 1. Generate the main post text (with retry on transient Gemini errors)
+  const postResult = await retryOnTransient(
+    () => adapter.generateText({
+      prompt: PromptService.buildUserPrompt(context),
+      systemInstruction: PromptService.buildSystemPrompt(mediaType, context.persona),
+      temperature,
+      maxTokens,
+      timeoutMs: 90_000, // 90s — large models like 3.1-pro need more time
+    }),
+    'text generation',
+  );
 
   const content = postResult.text.trim();
 
   // 2. Generate a short summary (for continuity with the next post)
-  const summaryResult = await adapter.generateText({
-    prompt: PromptService.buildSummaryPrompt(content),
-    systemInstruction: PromptService.getSummarySystem(),
-    temperature: 0.3,
-    maxTokens: 100,
-  });
+  const summaryResult = await retryOnTransient(
+    () => adapter.generateText({
+      prompt: PromptService.buildSummaryPrompt(content),
+      systemInstruction: PromptService.getSummarySystem(),
+      temperature: 0.3,
+      maxTokens: 100,
+    }),
+    'summary generation',
+  );
 
   const summary = summaryResult.text.trim();
 
@@ -128,7 +157,9 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         pageCount: context.pageCount,
       });
     } catch (htmlErr) {
-      mediaGenerationError = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);
+      const rawMsg = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);
+      // Strip [provider] prefix for cleaner user-facing warning
+      mediaGenerationError = rawMsg.replace(/^\[\w+\]\s*/, '');
       console.error('[post-generator] HTML generation failed (continuing text-only):', mediaGenerationError);
     }
   } else if (mediaType === 'image' && adapter.supportsCapability('image')) {
