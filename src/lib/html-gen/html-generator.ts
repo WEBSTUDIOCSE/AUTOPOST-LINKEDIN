@@ -60,12 +60,22 @@ function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number
   const contentGuide = pageCount > 1
     ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
 
-CONTENT — spread evenly across ${pageCount} sections:
+LAYOUT — CRITICAL (each section = one slide):
+- Create a wrapper div for each section: exactly ${w}px tall, with overflow:hidden.
+- Each section has its OWN header, content area, and footer — fully self-contained.
+- Content area height = section height minus header minus footer minus padding. Budget content to fit WITHIN this.
+
+CONTENT PER SECTION (${pageCount} sections total):
 - Section 1 (top ${w}px): Title slide — topic name, a compelling tagline. Keep text minimal.
-${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept with a heading, 2-4 sentences, and optional code/diagram.` : ''}
+${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept. Keep it to a heading + 2-3 short bullet points OR one small code snippet (max 6 lines). NEVER both a long list AND code in the same section.` : ''}
 - Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
 
-Each section MUST fill exactly ${w}px of vertical space. Content should be evenly distributed — no large empty gaps.`
+OVERFLOW PREVENTION (MANDATORY):
+- Each section div MUST have: height:${w}px; overflow:hidden; position:relative;
+- If content might not fit, REDUCE IT. Fewer items that fit perfectly > more items that overflow.
+- Code blocks: max 6 lines, use small font-size (13-14px). Trim if needed.
+- Feature lists: max 3 items per section. Keep descriptions to 1 line each.
+- NEVER let any content bleed past a section boundary into the next section.`
     : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
 
 CONTENT — Most important:
@@ -84,7 +94,8 @@ TECHNICAL RULES (strict):
 - All CSS in one <style> block. No external CSS, no CDN links, no <script> tags.
 - No backdrop-filter. Use box-shadow for depth instead.
 - CSS: ${sizeRule}
-- Content MUST fit within the dimensions. Do NOT let text overflow or get cut off.
+- Each section div must enforce overflow:hidden so content NEVER spills into the next section.
+- Content MUST fit within the dimensions. If it doesn't fit, REDUCE the content.
 
 TOPIC: ${topic}
 CONTEXT: ${snippet}
@@ -170,12 +181,22 @@ function buildTemplatePrompt(
   const contentGuide = pageCount > 1
     ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
 
-CONTENT — spread evenly across ${pageCount} sections:
+LAYOUT — CRITICAL (each section = one slide):
+- Create a wrapper div for each section: exactly ${w}px tall, with overflow:hidden.
+- Each section has its OWN header, content area, and footer — fully self-contained.
+- Content area height = section height minus header minus footer minus padding. Budget content to fit WITHIN this.
+
+CONTENT PER SECTION (${pageCount} sections total):
 - Section 1 (top ${w}px): Title slide — topic name, a compelling tagline.
-${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept with a heading, 2-4 sentences, and optional code.` : ''}
+${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept. Keep it to a heading + 2-3 short bullet points OR one small code snippet (max 6 lines). NEVER both a long list AND code in the same section.` : ''}
 - Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
 
-Each section MUST fill exactly ${w}px of vertical space. Content should be evenly distributed.`
+OVERFLOW PREVENTION (MANDATORY):
+- Each section div MUST have: height:${w}px; overflow:hidden; position:relative;
+- If content might not fit, REDUCE IT. Fewer items that fit perfectly > more items that overflow.
+- Code blocks: max 6 lines, use small font-size (13-14px). Trim if needed.
+- Feature lists: max 3 items per section. Keep descriptions to 1 line each.
+- NEVER let any content bleed past a section boundary into the next section.`
     : `Create a SINGLE HTML document that teaches this topic with real depth and clarity.
 
 CONTENT:
@@ -199,7 +220,8 @@ TECHNICAL RULES (strict):
 - All CSS in one <style> block. Convert Tailwind/Google Fonts to plain CSS. No CDN links, no <script> tags.
 - No backdrop-filter. Use box-shadow for depth instead.
 - CSS: ${sizeCSS}
-- Content MUST fit within the dimensions. Do NOT let text overflow or get cut off.
+- Each section div must enforce overflow:hidden so content NEVER spills into the next section.
+- Content MUST fit within the dimensions. If it doesn't fit, REDUCE the content.
 
 TEMPLATE (structure reference — bg + header + footer only):
 ${'```html'}

@@ -20,9 +20,9 @@
  * Functions overview:
  *
  * SCHEDULED:
- *   1. generateDrafts  — runs at 9 PM IST on Mon/Tue/Wed
- *   2. cutoffReview    — runs at 3 AM IST on Tue/Wed/Thu
- *   3. publishPosts    — runs at posting time on Tue/Wed/Thu
+ *   1. generateDrafts  — runs every 5 minutes (for testing; production: 9 PM IST Mon-Wed)
+ *   2. cutoffReview    — runs every 5 minutes (for testing; production: 3 AM IST Tue-Thu)
+ *   3. publishPosts    — runs every 5 minutes (for testing; production: 30-min slots 8-11 AM)
  *
  * HTTP (called from the Next.js app):
  *   4. onPostApproved  — Firestore trigger when status → approved
@@ -41,11 +41,12 @@
 */
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 1. GENERATE DRAFTS — 9 PM IST Mon/Tue/Wed
+// 1. GENERATE DRAFTS — every 5 minutes (testing) / 9 PM IST Mon/Tue/Wed (production)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /*
-  Schedule: "0 21 * * 1,2,3" (cron) — 9:00 PM every Mon, Tue, Wed IST
+  TESTING schedule:  "every-5-min" (cron: * /5 * * * * — no space)
+  PRODUCTION schedule: "0 21 * * 1,2,3" (9:00 PM every Mon, Tue, Wed IST)
 
   Logic:
   ┌───────────────────────────────────────────────────────┐
@@ -86,7 +87,8 @@
   Pseudo-code:
 
   export const generateDrafts = onSchedule(
-    { schedule: "0 21 * * 1,2,3", timeZone: "Asia/Kolkata" },
+    { schedule: "every 5 minutes", timeZone: "Asia/Kolkata" },  // TESTING (real cron: star-slash-5 * * * *)
+    // PRODUCTION: { schedule: "0 21 * * 1,2,3", timeZone: "Asia/Kolkata" },
     async () => {
       const profiles = await getAllActiveProfiles();
 
@@ -131,7 +133,7 @@
           ? await getLastPublishedInSeries(profile.userId, seriesId)
           : null;
 
-        // Generate draft
+        // Generate draft — use profile's preferred AI model
         const draft = await generatePostDraft({
           topic,
           notes,
@@ -139,6 +141,10 @@
           previousPostSummary: lastPost?.previousPostSummary,
           persona: profile.persona,
           publishDay: getDayName(tomorrow),
+          // AI model preferences from user profile
+          provider: profile.preferredProvider,
+          textModel: profile.preferredTextModel,
+          mediaType: profile.preferredMediaType ?? 'text',
         });
 
         // Calculate times
@@ -178,11 +184,12 @@
 */
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 2. CUTOFF REVIEW — 3 AM IST Tue/Wed/Thu
+// 2. CUTOFF REVIEW — every 5 minutes (testing) / 3 AM IST Tue/Wed/Thu (production)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /*
-  Schedule: "0 3 * * 2,3,4" — 3:00 AM every Tue, Wed, Thu IST
+  TESTING schedule:  "every-5-min" (cron: * /5 * * * * — no space)
+  PRODUCTION schedule: "0 3 * * 2,3,4" — 3:00 AM every Tue, Wed, Thu IST
 
   Logic:
   ┌───────────────────────────────────────────────────────┐
@@ -197,7 +204,8 @@
   └───────────────────────────────────────────────────────┘
 
   export const cutoffReview = onSchedule(
-    { schedule: "0 3 * * 2,3,4", timeZone: "Asia/Kolkata" },
+    { schedule: "every 5 minutes", timeZone: "Asia/Kolkata" },  // TESTING (real cron: star-slash-5 * * * *)
+    // PRODUCTION: { schedule: "0 3 * * 2,3,4", timeZone: "Asia/Kolkata" },
     async () => {
       const expiredPosts = await getPostsPastDeadline(); // status=pending_review, reviewDeadline<=now
       for (const post of expiredPosts) {
@@ -217,11 +225,12 @@
 */
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// 3. PUBLISH POSTS — Morning posting times Tue/Wed/Thu
+// 3. PUBLISH POSTS — every 5 minutes (testing) / Morning posting times (production)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /*
-  Schedule: "0,30 8-11 * * 2,3,4" — every 30 min from 8–11 AM IST
+  TESTING schedule:  "every-5-min" (cron: * /5 * * * * — no space)
+  PRODUCTION schedule: "0,30 8-11 * * 2,3,4" — every 30 min from 8–11 AM IST
   (Checks for posts whose scheduledFor <= now and status == "approved")
 
   A more precise approach is to use Cloud Tasks — create a task at the
@@ -248,7 +257,8 @@
   └───────────────────────────────────────────────────────┘
 
   export const publishPosts = onSchedule(
-    { schedule: "0,30 8-11 * * 2,3,4", timeZone: "Asia/Kolkata" },
+    { schedule: "every 5 minutes", timeZone: "Asia/Kolkata" },  // TESTING (real cron: star-slash-5 * * * *)
+    // PRODUCTION: { schedule: "0,30 8-11 * * 2,3,4", timeZone: "Asia/Kolkata" },
     async () => {
       const duePosts = await getApprovedPostsDue(); // status=approved, scheduledFor<=now
       for (const post of duePosts) {
@@ -279,10 +289,54 @@
 
           // Publish
           const content = post.editedContent ?? post.content;
+
+          // If the post has pre-captured images (HTML posts capture at
+          // approval time), upload them to LinkedIn first.
+          let mediaAssetUrns: string[] | undefined;
+          let mediaAssetUrn: string | undefined;
+
+          if (post.mediaType === 'html' && post.imageUrls?.length) {
+            // HTML carousel / single-image — images were captured client-side
+            // at approval time and stored in Firebase Storage.
+            const urns: string[] = [];
+            for (const storageUrl of post.imageUrls) {
+              const buffer = await downloadMediaAsBuffer(storageUrl);
+              const { imageUrn } = await uploadImageToLinkedIn(
+                accessToken,
+                profile.linkedinMemberUrn!,
+                buffer,
+              );
+              urns.push(imageUrn);
+            }
+            mediaAssetUrns = urns.length > 1 ? urns : undefined;
+            mediaAssetUrn = urns.length === 1 ? urns[0] : undefined;
+          } else if (post.mediaUrl) {
+            // Non-HTML media (image / video) stored in Firebase Storage
+            const buffer = await downloadMediaAsBuffer(post.mediaUrl);
+            if (post.mediaType === 'image') {
+              const { imageUrn } = await uploadImageToLinkedIn(
+                accessToken,
+                profile.linkedinMemberUrn!,
+                buffer,
+              );
+              mediaAssetUrn = imageUrn;
+            } else if (post.mediaType === 'video') {
+              const { videoUrn } = await uploadVideoToLinkedIn(
+                accessToken,
+                profile.linkedinMemberUrn!,
+                buffer,
+              );
+              mediaAssetUrn = videoUrn;
+            }
+          }
+
           const linkedinPostId = await createLinkedInPost({
             accessToken,
             authorUrn: profile.linkedinMemberUrn!,
             text: content,
+            mediaType: post.mediaType,
+            mediaAssetUrn: mediaAssetUrns ? mediaAssetUrns[0] : mediaAssetUrn,
+            mediaAssetUrns,
           });
 
           await markPostPublished(post.id, linkedinPostId);

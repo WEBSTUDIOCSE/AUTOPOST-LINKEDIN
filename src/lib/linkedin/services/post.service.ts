@@ -227,6 +227,34 @@ export const PostService = {
     }, 'PostService.setMediaUrl');
   },
 
+  /**
+   * Store pre-captured PNG URLs so the scheduled Firebase Function can
+   * publish HTML posts without needing a browser for HTML→PNG conversion.
+   */
+  setImageUrls(postId: string, imageUrls: string[]) {
+    return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
+        imageUrls,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }, 'PostService.setImageUrls');
+  },
+
+  /** Update HTML content and page count (used when removing slides) */
+  updateHtml(postId: string, htmlContent: string, pageCount: number) {
+    return firebaseVoidHandler(async () => {
+      const db = getAdminDb();
+      await db.collection(POSTS_COLLECTION).doc(postId).update({
+        htmlContent,
+        pageCount,
+        // Clear cached images — they're stale after slide removal
+        imageUrls: FieldValue.delete(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }, 'PostService.updateHtml');
+  },
+
   /** Mark post as failed */
   markFailed(postId: string, reason: string) {
     return firebaseVoidHandler(async () => {
@@ -255,7 +283,7 @@ export const PostService = {
   },
 
   /** Update post content (user editing the draft or AI regeneration) */
-  updateContent(postId: string, editedContent: string, htmlContent?: string) {
+  updateContent(postId: string, editedContent: string, htmlContent?: string, pageCount?: number) {
     return firebaseVoidHandler(async () => {
       const db = getAdminDb();
       const update: Record<string, unknown> = {
@@ -263,6 +291,7 @@ export const PostService = {
         updatedAt: FieldValue.serverTimestamp(),
       };
       if (htmlContent !== undefined) update.htmlContent = htmlContent;
+      if (pageCount !== undefined) update.pageCount = pageCount;
       await db.collection(POSTS_COLLECTION).doc(postId).update(update);
     }, 'PostService.updateContent');
   },

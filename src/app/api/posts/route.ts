@@ -346,7 +346,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { postId, action, editedContent, imageBase64, imageBase64Array } = body;
+    const { postId, action, editedContent, imageBase64, imageBase64Array, slideIndex } = body;
 
     if (!postId || !action) {
       return NextResponse.json(
@@ -364,9 +364,31 @@ export async function PATCH(request: NextRequest) {
     const post = postResult.data;
 
     switch (action) {
-      case 'approve':
+      case 'approve': {
         await PostService.approve(postId, editedContent);
+
+        // If the client captured HTML→PNG images, upload them to Storage
+        // and persist the URLs so the scheduled Firebase Function can publish
+        // without needing a browser for HTML→PNG conversion.
+        if (post.mediaType === 'html') {
+          const pages = imageBase64Array ?? (imageBase64 ? [imageBase64] : []);
+          if (pages.length > 0) {
+            const urls: string[] = [];
+            for (const b64 of pages) {
+              const url = await uploadMediaToStorage({
+                base64: b64,
+                mimeType: 'image/png',
+                folder: 'posts/images',
+                userId: user.uid,
+              });
+              urls.push(url);
+            }
+            await PostService.setImageUrls(postId, urls);
+          }
+        }
+
         return NextResponse.json({ success: true, message: 'Post approved' });
+      }
 
       case 'reject':
         await PostService.reject(postId);
@@ -378,6 +400,27 @@ export async function PATCH(request: NextRequest) {
         }
         await PostService.updateContent(postId, editedContent);
         return NextResponse.json({ success: true, message: 'Post updated' });
+
+      case 'remove-slide': {
+        // Remove a specific slide from a multi-page HTML carousel
+        if (typeof slideIndex !== 'number') {
+          return NextResponse.json({ error: 'slideIndex required' }, { status: 400 });
+        }
+        if (!post.htmlContent || !post.pageCount || post.pageCount <= 1) {
+          return NextResponse.json({ error: 'Post is not a multi-page carousel' }, { status: 400 });
+        }
+        const { removeSlideFromHtml } = await import('@/lib/html-gen/utils');
+        const result = removeSlideFromHtml(post.htmlContent, slideIndex, post.pageCount);
+        if (!result) {
+          return NextResponse.json({ error: 'Could not remove slide' }, { status: 400 });
+        }
+        await PostService.updateHtml(postId, result.html, result.newPageCount);
+        return NextResponse.json({
+          success: true,
+          message: 'Slide removed',
+          data: { htmlContent: result.html, pageCount: result.newPageCount },
+        });
+      }
 
       case 'retry':
         await PostService.retry(postId);
@@ -438,7 +481,7 @@ export async function PATCH(request: NextRequest) {
           let mediaAssetUrns: string[] | undefined;
 
           if (post.mediaType === 'html' && imageBase64Array && Array.isArray(imageBase64Array) && imageBase64Array.length > 0) {
-            // Multi-page carousel: upload each page as a separate image
+            // Client sent freshly-captured pages (Post Now flow)
             const urns: string[] = [];
             for (const b64 of imageBase64Array) {
               const mediaUrl = await uploadMediaToStorage({
@@ -448,6 +491,19 @@ export async function PATCH(request: NextRequest) {
                 userId: user.uid,
               });
               const mediaBuffer = await downloadMediaAsBuffer(mediaUrl);
+              const { imageUrn } = await uploadImageToLinkedIn(
+                pubProfile.linkedinAccessToken,
+                pubProfile.linkedinMemberUrn,
+                mediaBuffer,
+              );
+              urns.push(imageUrn);
+            }
+            mediaAssetUrns = urns;
+          } else if (post.mediaType === 'html' && post.imageUrls && post.imageUrls.length > 0) {
+            // Pre-captured images stored at approval time — used by scheduled publish
+            const urns: string[] = [];
+            for (const storedUrl of post.imageUrls) {
+              const mediaBuffer = await downloadMediaAsBuffer(storedUrl);
               const { imageUrn } = await uploadImageToLinkedIn(
                 pubProfile.linkedinAccessToken,
                 pubProfile.linkedinMemberUrn,
@@ -507,6 +563,18 @@ export async function PATCH(request: NextRequest) {
           });
 
           await PostService.markPublished(postId, linkedinPostId);
+
+          // Advance series topic index so the next generation picks the next topic
+          if (post.seriesId && post.topicIndex !== undefined) {
+            const seriesResult = await SeriesService.getById(post.seriesId);
+            if (seriesResult.data) {
+              await SeriesService.advanceIndex(
+                post.seriesId,
+                seriesResult.data.topicQueue.length,
+                seriesResult.data.currentIndex,
+              );
+            }
+          }
 
           return NextResponse.json({
             success: true,

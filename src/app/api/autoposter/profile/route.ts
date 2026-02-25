@@ -59,6 +59,7 @@ export async function PATCH(request: NextRequest) {
     const allowedFields = [
       'persona', 'postingSchedule', 'timezone',
       'draftGenerationHour', 'reviewDeadlineHour', 'fcmToken',
+      'preferredProvider', 'preferredTextModel', 'preferredMediaType',
     ];
 
     const updates: Record<string, unknown> = {};

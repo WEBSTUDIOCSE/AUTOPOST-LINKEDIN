@@ -153,6 +153,12 @@ export interface Post {
   htmlContent?: string;
   /** Number of carousel pages (1 = single card, 2+ = multi-page carousel sliced from one tall document) */
   pageCount?: number;
+  /**
+   * Pre-captured PNG image URLs stored in Firebase Storage.
+   * Set at approval time so scheduled Firebase Functions can publish
+   * without needing a browser for HTML→PNG conversion.
+   */
+  imageUrls?: string[];
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */
@@ -217,6 +223,14 @@ export interface AutoposterProfile {
 
   // ── FCM (push notifications) ───────────────────────────────────────────
   fcmToken?: string;
+
+  // ── AI model preferences ───────────────────────────────────────────────
+  /** AI provider for auto-generated drafts — 'gemini' | 'kieai' (default: env config) */
+  preferredProvider?: 'gemini' | 'kieai';
+  /** Explicit text model name for draft generation */
+  preferredTextModel?: string;
+  /** Preferred media type for auto-generated posts — 'text' | 'image' | 'html' */
+  preferredMediaType?: 'text' | 'image' | 'html';
 
   // ── AI persona ─────────────────────────────────────────────────────────
   /**

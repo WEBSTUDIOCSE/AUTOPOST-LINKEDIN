@@ -2,7 +2,7 @@
 
 /**
  * Settings — Configure LinkedIn connection, posting schedule,
- * draft timing, and notifications.
+ * draft timing, AI model, persona, notifications, and test triggers.
  */
 
 import { useEffect, useState, useCallback } from 'react';
@@ -14,6 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
+import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -30,6 +32,11 @@ import {
   Check,
   Unplug,
   Loader2,
+  Bot,
+  Zap,
+  Play,
+  AlertCircle,
+  User,
 } from 'lucide-react';
 import type { AutoposterProfile, PostingDay, PostingSchedule } from '@/lib/linkedin/types';
 
@@ -64,6 +71,18 @@ const COMMON_TIMEZONES = [
   'Pacific/Auckland',
 ];
 
+const PROVIDER_OPTIONS: { value: string; label: string; description: string }[] = [
+  { value: '_default', label: 'Default (env config)', description: 'Uses server default' },
+  { value: 'gemini', label: 'Google Gemini', description: 'gemini-2.5-flash' },
+  { value: 'kieai', label: 'Kie.AI', description: 'gemini-2.5-flash via Kie proxy' },
+];
+
+const MEDIA_TYPE_OPTIONS: { value: string; label: string; description: string }[] = [
+  { value: 'text', label: 'Text Only', description: 'Plain LinkedIn post' },
+  { value: 'image', label: 'With Image', description: 'AI-generated image' },
+  { value: 'html', label: 'HTML Carousel', description: 'Infographic slides' },
+];
+
 const DEFAULT_SCHEDULE: PostingSchedule = {
   monday: { enabled: false, postTime: '10:00' },
   tuesday: { enabled: true, postTime: '10:00' },
@@ -86,7 +105,7 @@ function ScheduleRow({
   onChange: (val: PostingDay) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
+    <div className="flex items-center justify-between gap-3 py-2.5">
       <div className="flex items-center gap-3 min-w-0">
         <Switch
           checked={value.enabled}
@@ -102,7 +121,7 @@ function ScheduleRow({
         value={value.postTime}
         onChange={(e) => onChange({ ...value, postTime: e.target.value })}
         disabled={!value.enabled}
-        className="w-28 text-sm"
+        className="w-32 text-sm touch-manipulation"
       />
     </div>
   );
@@ -125,11 +144,11 @@ function SettingsSection({
     <Card>
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-secondary p-2">
+          <div className="rounded-lg bg-secondary p-2.5 shrink-0">
             <Icon className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div>
-            <CardTitle className="text-base">{title}</CardTitle>
+          <div className="min-w-0">
+            <CardTitle className="text-base leading-snug">{title}</CardTitle>
             <CardDescription className="text-xs mt-0.5">{description}</CardDescription>
           </div>
         </div>
@@ -154,6 +173,17 @@ export default function SettingsClient() {
   const [reviewHour, setReviewHour] = useState('3');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
+  // AI model state
+  const [preferredProvider, setPreferredProvider] = useState('_default');
+  const [preferredTextModel, setPreferredTextModel] = useState('');
+  const [preferredMediaType, setPreferredMediaType] = useState('text');
+  const [persona, setPersona] = useState('');
+
+  // Test trigger state
+  const [triggerTime, setTriggerTime] = useState('');
+  const [triggering, setTriggering] = useState(false);
+  const [triggerResult, setTriggerResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
@@ -167,6 +197,10 @@ export default function SettingsClient() {
         setDraftHour(String(p.draftGenerationHour ?? 21));
         setReviewHour(String(p.reviewDeadlineHour ?? 3));
         setNotificationsEnabled(!!p.fcmToken);
+        setPreferredProvider(p.preferredProvider ?? '_default');
+        setPreferredTextModel(p.preferredTextModel ?? '');
+        setPreferredMediaType(p.preferredMediaType ?? 'text');
+        setPersona(p.persona ?? '');
       } else {
         // Create profile if it doesn't exist
         await fetch('/api/autoposter/profile', { method: 'POST' });
@@ -182,6 +216,14 @@ export default function SettingsClient() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  // Set default trigger time to now + 5 min
+  useEffect(() => {
+    const d = new Date(Date.now() + 5 * 60 * 1000);
+    const hh = String(d.getHours()).padStart(2, '0');
+    const mm = String(d.getMinutes()).padStart(2, '0');
+    setTriggerTime(`${hh}:${mm}`);
+  }, []);
 
   // Generic save handler
   const saveField = async (section: string, updates: Record<string, unknown>) => {
@@ -208,6 +250,14 @@ export default function SettingsClient() {
       reviewDeadlineHour: Number(reviewHour),
       timezone,
     });
+  const saveModel = () =>
+    saveField('model', {
+      preferredProvider: preferredProvider === '_default' ? null : preferredProvider,
+      preferredTextModel: preferredTextModel.trim() || null,
+      preferredMediaType,
+    });
+  const savePersona = () =>
+    saveField('persona', { persona: persona.trim() || null });
 
   const enableNotifications = async () => {
     setSaving('notifications');
@@ -250,6 +300,49 @@ export default function SettingsClient() {
     }
   };
 
+  // ── Test Trigger ─────────────────────────────────────────────────────────
+
+  const handleTrigger = async () => {
+    setTriggering(true);
+    setTriggerResult(null);
+    try {
+      // Build scheduledFor from the time picker
+      const [h, m] = triggerTime.split(':').map(Number);
+      const scheduledFor = new Date();
+      scheduledFor.setHours(h, m, 0, 0);
+      // If the time is in the past, push to tomorrow
+      if (scheduledFor <= new Date()) {
+        scheduledFor.setDate(scheduledFor.getDate() + 1);
+      }
+
+      const res = await fetch('/api/autoposter/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledFor: scheduledFor.toISOString() }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTriggerResult({
+          success: true,
+          message: `Draft created for "${data.data.topic}" (${data.data.mediaType}). Scheduled for ${new Date(data.data.scheduledFor).toLocaleString()}.${data.data.mediaWarning ? ` Warning: ${data.data.mediaWarning}` : ''}`,
+        });
+      } else {
+        setTriggerResult({
+          success: false,
+          message: data.error + (data.details ? ` — ${data.details}` : ''),
+        });
+      }
+    } catch (err) {
+      setTriggerResult({
+        success: false,
+        message: err instanceof Error ? err.message : 'Trigger failed',
+      });
+    } finally {
+      setTriggering(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -273,7 +366,7 @@ export default function SettingsClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-3xl mx-auto">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
@@ -282,21 +375,75 @@ export default function SettingsClient() {
         </p>
       </div>
 
-      {/* LinkedIn Connection */}
+      {/* ── Test Trigger ────────────────────────────────────────────────────── */}
+      <SettingsSection
+        icon={Zap}
+        title="Test Draft Generation"
+        description="Manually trigger a draft to test the autoposter pipeline."
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs">Schedule Post At</Label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Input
+                type="time"
+                value={triggerTime}
+                onChange={(e) => setTriggerTime(e.target.value)}
+                className="w-full sm:w-40 text-sm touch-manipulation"
+              />
+              <Button
+                onClick={handleTrigger}
+                disabled={triggering || !triggerTime}
+                className="w-full sm:w-auto touch-manipulation"
+              >
+                {triggering ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="mr-1.5 h-4 w-4" />
+                )}
+                {triggering ? 'Generating...' : 'Generate Draft Now'}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Picks the next topic from your active series or idea bank and generates a draft.
+              The draft will appear in Posts for review.
+            </p>
+          </div>
+
+          {triggerResult && (
+            <div className={`rounded-lg border px-4 py-3 text-sm ${
+              triggerResult.success
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+                : 'bg-destructive/10 border-destructive/30 text-destructive'
+            }`}>
+              <div className="flex items-start gap-2">
+                {triggerResult.success ? (
+                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                )}
+                <span className="break-words min-w-0">{triggerResult.message}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </SettingsSection>
+
+      {/* ── LinkedIn Connection ───────────────────────────────────────────── */}
       <SettingsSection
         icon={Linkedin}
         title="LinkedIn Account"
         description="Connect your account to enable auto-posting."
       >
         {profile?.linkedinConnected ? (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant="default" className="text-xs">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <Badge variant="default" className="text-xs shrink-0">
                 <Check className="mr-1 h-3 w-3" />
                 Connected
               </Badge>
               {profile.linkedinMemberUrn && (
-                <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                <span className="text-xs text-muted-foreground truncate">
                   {profile.linkedinMemberUrn}
                 </span>
               )}
@@ -306,20 +453,125 @@ export default function SettingsClient() {
               size="sm"
               onClick={disconnectLinkedIn}
               disabled={saving === 'linkedin'}
+              className="w-full sm:w-auto touch-manipulation"
             >
               <Unplug className="mr-1.5 h-3.5 w-3.5" />
               Disconnect
             </Button>
           </div>
         ) : (
-          <Button size="sm" onClick={connectLinkedIn}>
+          <Button size="sm" onClick={connectLinkedIn} className="w-full sm:w-auto touch-manipulation">
             <Linkedin className="mr-1.5 h-3.5 w-3.5" />
             Connect LinkedIn
           </Button>
         )}
       </SettingsSection>
 
-      {/* Posting Schedule */}
+      {/* ── AI Model & Media ──────────────────────────────────────────────── */}
+      <SettingsSection
+        icon={Bot}
+        title="AI Model"
+        description="Choose the AI provider and default media type for auto-generated drafts."
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="text-xs">AI Provider</Label>
+              <Select value={preferredProvider} onValueChange={setPreferredProvider}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PROVIDER_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      <div>
+                        <span>{p.label}</span>
+                        <span className="text-muted-foreground ml-2 text-xs">{p.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Text Model Override</Label>
+              <Input
+                placeholder="e.g. gemini-2.5-flash"
+                value={preferredTextModel}
+                onChange={(e) => setPreferredTextModel(e.target.value)}
+                className="text-sm"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Leave empty to use provider default
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs">Default Media Type</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {MEDIA_TYPE_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setPreferredMediaType(opt.value)}
+                  className={`rounded-lg border px-3 py-2.5 text-left transition-colors touch-manipulation ${
+                    preferredMediaType === opt.value
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                      : 'border-border hover:bg-secondary/50'
+                  }`}
+                >
+                  <p className="text-sm font-medium">{opt.label}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{opt.description}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button size="sm" onClick={saveModel} disabled={saving === 'model'} className="w-full sm:w-auto touch-manipulation">
+              {saving === 'model' ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Save Model
+            </Button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* ── Persona ───────────────────────────────────────────────────────── */}
+      <SettingsSection
+        icon={User}
+        title="Writing Persona"
+        description="Describe your writing style so every AI draft sounds like you."
+      >
+        <div className="space-y-4">
+          <Textarea
+            placeholder="e.g. I write short, punchy LinkedIn posts with 2-3 paragraphs. I use emojis sparingly. I share what I built and what I learned."
+            value={persona}
+            onChange={(e) => setPersona(e.target.value)}
+            className="min-h-[100px] text-sm resize-y"
+            rows={4}
+          />
+          <div className="flex justify-end">
+            <Button size="sm" onClick={savePersona} disabled={saving === 'persona'} className="w-full sm:w-auto touch-manipulation">
+              {saving === 'persona' ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Check className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Save Persona
+            </Button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <Separator />
+
+      {/* ── Posting Schedule ──────────────────────────────────────────────── */}
       <SettingsSection
         icon={Calendar}
         title="Posting Schedule"
@@ -338,7 +590,7 @@ export default function SettingsClient() {
           ))}
         </div>
         <div className="flex justify-end mt-4">
-          <Button size="sm" onClick={saveSchedule} disabled={saving === 'schedule'}>
+          <Button size="sm" onClick={saveSchedule} disabled={saving === 'schedule'} className="w-full sm:w-auto touch-manipulation">
             {saving === 'schedule' ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
@@ -349,16 +601,16 @@ export default function SettingsClient() {
         </div>
       </SettingsSection>
 
-      {/* Draft Timing */}
+      {/* ── Draft Timing ──────────────────────────────────────────────────── */}
       <SettingsSection
         icon={Clock}
         title="Draft Timing"
         description="When drafts are generated and when the review window closes."
       >
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label className="text-xs">Draft Generation</Label>
+              <Label className="text-xs">Draft Generation Time</Label>
               <Select value={draftHour} onValueChange={setDraftHour}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -372,7 +624,7 @@ export default function SettingsClient() {
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground">
-                Time when AI generates your draft
+                The hour when the AI generates your draft (night before posting)
               </p>
             </div>
 
@@ -417,7 +669,7 @@ export default function SettingsClient() {
           </div>
 
           <div className="flex justify-end">
-            <Button size="sm" onClick={saveTiming} disabled={saving === 'timing'}>
+            <Button size="sm" onClick={saveTiming} disabled={saving === 'timing'} className="w-full sm:w-auto touch-manipulation">
               {saving === 'timing' ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
@@ -429,7 +681,7 @@ export default function SettingsClient() {
         </div>
       </SettingsSection>
 
-      {/* Notifications */}
+      {/* ── Notifications ─────────────────────────────────────────────────── */}
       <SettingsSection
         icon={Bell}
         title="Notifications"
@@ -451,6 +703,7 @@ export default function SettingsClient() {
             variant="outline"
             onClick={enableNotifications}
             disabled={saving === 'notifications'}
+            className="w-full sm:w-auto touch-manipulation"
           >
             {saving === 'notifications' ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

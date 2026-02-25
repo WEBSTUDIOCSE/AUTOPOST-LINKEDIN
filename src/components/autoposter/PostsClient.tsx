@@ -44,6 +44,7 @@ import {
 import type { TestProvider, TestCapability, ModelOption } from '@/components/ai-test/types';
 import type { Post, PostStatus, PostMediaType, Series, HtmlTemplate } from '@/lib/linkedin/types';
 import html2canvas from 'html2canvas';
+import { removeSlideFromHtml } from '@/lib/html-gen/utils';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,7 +83,21 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
   html: Code2,
 };
 
-// ── HTML Dimension Parser ─────────────────────────────────────────────────────
+// ── HTML Dimension / Background Parser ────────────────────────────────────────
+
+/**
+ * Extract the CSS background-color from the HTML's `html` or `body` rules.
+ * Falls back to a dark default so html2canvas never renders a transparent canvas.
+ */
+function extractCssBackgroundColor(html: string): string {
+  // Try background-color first
+  const bgcMatch = html.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
+  if (bgcMatch) return bgcMatch[1].trim();
+  // Try background shorthand — grab just the color portion
+  const bgMatch = html.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|[a-z]+)/i);
+  if (bgMatch) return bgMatch[1].trim();
+  return '#0f172a'; // safe dark fallback
+}
 
 /**
  * Extract width/height from the HTML's inline CSS.
@@ -210,7 +225,18 @@ html, body {
  * One iframe renders the full document; CSS translateY shows one page at a time.
  * Falls back to a simple HtmlPreview if pageCount <= 1.
  */
-function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlContent: string; pageCount?: number; className?: string }) {
+function HtmlCarouselPreview({
+  htmlContent,
+  pageCount = 1,
+  className,
+  onRemoveSlide,
+}: {
+  htmlContent: string;
+  pageCount?: number;
+  className?: string;
+  /** If provided, shows a delete button on each slide (not shown when only 1 slide remains) */
+  onRemoveSlide?: (slideIndex: number) => void;
+}) {
   const [page, setPage] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
@@ -299,8 +325,8 @@ function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlCo
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      {/* Page dots */}
-      <div className="flex justify-center gap-1.5">
+      {/* Page dots + delete button */}
+      <div className="flex items-center justify-center gap-1.5">
         {Array.from({ length: totalPages }, (_, i) => (
           <button
             key={i}
@@ -311,6 +337,21 @@ function HtmlCarouselPreview({ htmlContent, pageCount = 1, className }: { htmlCo
             onClick={() => setPage(i)}
           />
         ))}
+        {onRemoveSlide && totalPages > 1 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 ml-2 text-muted-foreground hover:text-destructive"
+            onClick={() => {
+              onRemoveSlide(page);
+              if (page >= totalPages - 1) setPage(Math.max(0, totalPages - 2));
+            }}
+            title={`Remove slide ${page + 1}`}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
       </div>
     </div>
   );
@@ -343,14 +384,19 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
         // For auto-height, use actual content height
         const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
 
-        // Capture documentElement (not body) so html-level backgrounds
-        // (dot-matrix patterns, gradients) are included in the screenshot
+        // Extract the CSS background color so the canvas is never transparent.
+        // html2canvas may miss radial-gradient patterns — the solid color ensures
+        // the image always has the correct background rather than transparency.
+        const bgColor = extractCssBackgroundColor(html);
+
         const canvas = await html2canvas(doc.documentElement, {
           width: designW,
           height: finalH,
           scale: 2,
           useCORS: true,
-          backgroundColor: null, // Use the actual HTML background
+          backgroundColor: bgColor,
+          windowWidth: designW,
+          windowHeight: finalH,
         });
 
         const dataUrl = canvas.toDataURL('image/png');
@@ -399,16 +445,19 @@ async function captureHtmlPages(html: string, pageCount: number): Promise<string
         const doc = iframe.contentDocument;
         if (!doc?.documentElement) throw new Error('Cannot access iframe content');
 
+        const bgColor = extractCssBackgroundColor(html);
+
         const results: string[] = [];
         for (let i = 0; i < pageCount; i++) {
-          // Capture documentElement so html-level backgrounds are included
           const canvas = await html2canvas(doc.documentElement, {
             width: designW,
             height: pageH,
             y: i * pageH,
             scale: 2,
             useCORS: true,
-            backgroundColor: null, // Use the actual HTML background
+            backgroundColor: bgColor,
+            windowWidth: designW,
+            windowHeight: totalH,
           });
           const dataUrl = canvas.toDataURL('image/png');
           results.push(dataUrl.split(',')[1]);
@@ -1093,7 +1142,16 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
             <div className="space-y-3 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
               {/* HTML card preview */}
               {draft.htmlContent && form.mediaType === 'html' && (
-                <HtmlCarouselPreview htmlContent={draft.htmlContent} pageCount={draft.pageCount} />
+                <HtmlCarouselPreview
+                  htmlContent={draft.htmlContent}
+                  pageCount={draft.pageCount}
+                  onRemoveSlide={(idx) => {
+                    const result = removeSlideFromHtml(draft.htmlContent!, idx, draft.pageCount ?? 1);
+                    if (result) {
+                      setDraft(d => d ? { ...d, htmlContent: result.html, pageCount: result.newPageCount } : d);
+                    }
+                  }}
+                />
               )}
 
               {/* Media preview (image / video) */}
@@ -1324,10 +1382,12 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: capture HTML→PNG client-side first
+      // For approve/publish on HTML posts: capture HTML→PNG client-side.
+      // Approve captures are stored in Firebase Storage so the scheduled
+      // Firebase Function can publish without a browser.
       let imageBase64: string | undefined;
       let imageBase64Array: string[] | undefined;
-      if (action === 'publish' && draft.mediaType === 'html' && draft.htmlContent) {
+      if ((action === 'publish' || action === 'approve') && draft.mediaType === 'html' && draft.htmlContent) {
         try {
           const pc = draft.pageCount ?? 1;
           if (pc > 1) {
@@ -1370,7 +1430,29 @@ function DraftResultDialog({ draft, onClose, onRefresh }: DraftResultDialogProps
         <div className="space-y-3 py-2">
           {/* HTML card preview */}
           {draft.htmlContent && draft.mediaType === 'html' && (
-            <HtmlCarouselPreview htmlContent={draft.htmlContent} pageCount={draft.pageCount} />
+            <HtmlCarouselPreview
+              htmlContent={draft.htmlContent}
+              pageCount={draft.pageCount}
+              onRemoveSlide={async (idx) => {
+                setBusy(true);
+                try {
+                  const res = await fetch('/api/posts', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: draft.postId, action: 'remove-slide', slideIndex: idx }),
+                  });
+                  const data = await res.json();
+                  if (data.success && data.data) {
+                    // Update local draft state with server response
+                    Object.assign(draft, { htmlContent: data.data.htmlContent, pageCount: data.data.pageCount });
+                    onRefresh();
+                  } else {
+                    setError(data.error ?? 'Failed to remove slide');
+                  }
+                } catch { setError('Failed to remove slide'); }
+                setBusy(false);
+              }}
+            />
           )}
 
           {draft.summary && (
@@ -1460,10 +1542,11 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: capture viewport slices → PNG client-side first
+      // For approve/publish on HTML posts: capture viewport slices → PNG client-side.
+      // Approve captures are stored so the Firebase Function can publish without a browser.
       let imageBase64: string | undefined;
       let imageBase64Array: string[] | undefined;
-      if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
+      if ((action === 'publish' || action === 'approve') && post.mediaType === 'html' && post.htmlContent) {
         try {
           const pc = post.pageCount ?? 1;
           if (pc > 1) {
@@ -1516,7 +1599,29 @@ function PostPreviewDialog({ post, onAction }: PostPreviewDialogProps) {
         <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
           {/* HTML preview */}
           {post.htmlContent && post.mediaType === 'html' && (
-            <HtmlCarouselPreview htmlContent={post.htmlContent} pageCount={post.pageCount} />
+            <HtmlCarouselPreview
+              htmlContent={post.htmlContent}
+              pageCount={post.pageCount}
+              onRemoveSlide={(isPending || isApproved) ? async (idx) => {
+                setBusy(true);
+                try {
+                  const res = await fetch('/api/posts', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postId: post.id, action: 'remove-slide', slideIndex: idx }),
+                  });
+                  const data = await res.json();
+                  if (data.success && data.data) {
+                    post.htmlContent = data.data.htmlContent;
+                    post.pageCount = data.data.pageCount;
+                    await onAction(post.id, 'remove-slide');
+                  } else {
+                    setError(data.error ?? 'Failed to remove slide');
+                  }
+                } catch { setError('Failed to remove slide'); }
+                setBusy(false);
+              } : undefined}
+            />
           )}
 
           {/* Media preview (image when mediaUrl exists but no htmlContent, or video) */}
@@ -1629,10 +1734,11 @@ function PostCard({ post, onAction }: PostCardProps) {
     setBusy(true);
     setError('');
     try {
-      // For publish action on HTML posts: capture pages → PNG client-side first
+      // For approve/publish on HTML posts: capture pages → PNG client-side.
+      // Approve captures are stored so the Firebase Function can publish without a browser.
       let imageBase64: string | undefined;
       let imageBase64Array: string[] | undefined;
-      if (action === 'publish' && post.mediaType === 'html' && post.htmlContent) {
+      if ((action === 'publish' || action === 'approve') && post.mediaType === 'html' && post.htmlContent) {
         try {
           const pc = post.pageCount ?? 1;
           if (pc > 1) {
