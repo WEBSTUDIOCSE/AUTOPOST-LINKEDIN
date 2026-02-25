@@ -3,15 +3,16 @@
  *
  * POST /api/autoposter/generate-all
  *
- * Called by the Firebase scheduled function `generateDrafts` (every 5 min for testing,
- * 9 PM IST Mon–Wed in production).
+ * Called by the Firebase scheduled function `generateDrafts` (every 1 hour).
  *
- * For each autoposter profile:
- *   1. Check if tomorrow is a posting day for that user
- *   2. Skip if they already have a post scheduled for tomorrow
- *   3. Pick next topic from active series or idea bank
- *   4. Generate AI draft using their preferred model/media settings
- *   5. Save as pending_review with the correct posting time
+ * Schedule-first flow:
+ *   1. Find all posts with status = 'scheduled' whose scheduledFor is tomorrow
+ *      (relative to each user's draftGenerationHour + timezone)
+ *   2. For each: generate AI draft content using the saved model/media preferences
+ *   3. Update the post: fill in content, set status → pending_review
+ *
+ * Users first "book" posts via the Schedule dialog (just topic + time slot),
+ * and the AI draft is created automatically the night before at draftGenerationHour.
  *
  * Auth: shared CRON_SECRET secret in `x-cron-secret` header.
  */
@@ -19,13 +20,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ProfileService } from '@/lib/linkedin/services/profile.service';
 import { SeriesService } from '@/lib/linkedin/services/series.service';
-import { IdeaService } from '@/lib/linkedin/services/idea.service';
 import { PostService } from '@/lib/linkedin/services/post.service';
 import { TemplateService } from '@/lib/linkedin/services/template.service';
 import { generatePostDraft } from '@/lib/linkedin/services/post-generator.service';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { POSTS_COLLECTION } from '@/lib/linkedin/collections';
-import type { PostingSchedule, PostMediaType } from '@/lib/linkedin/types';
+import { FieldValue } from 'firebase-admin/firestore';
+import type { Timestamp } from 'firebase-admin/firestore';
+import type { PostMediaType } from '@/lib/linkedin/types';
 
 export const maxDuration = 300; // AI generation can be slow
 
@@ -37,57 +39,37 @@ function isAuthorised(request: NextRequest): boolean {
   return request.headers.get('x-cron-secret') === secret;
 }
 
-// ── Day helpers ──────────────────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-const DAY_KEYS: (keyof PostingSchedule)[] = [
-  'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday',
-];
-
-function getTomorrowDayKey(timezone: string): keyof PostingSchedule {
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  // Returns e.g. "wednesday"
-  const name = tomorrow.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone }).toLowerCase();
-  return (DAY_KEYS.includes(name as keyof PostingSchedule)
-    ? name : 'monday') as keyof PostingSchedule;
+/**
+ * Check if now is the right hour to generate drafts for a user.
+ * Returns true if the current hour in the user's timezone matches their draftGenerationHour.
+ */
+function isDraftHour(timezone: string, draftGenerationHour: number): boolean {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    hour12: false,
+    timeZone: timezone,
+  });
+  const currentHour = parseInt(formatter.format(now), 10);
+  return currentHour === draftGenerationHour;
 }
 
-function buildScheduledForDate(timezone: string, postTime: string): Date {
-  // Build a Date for tomorrow at the given postTime in the user's timezone
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const [h, m] = postTime.split(':').map(Number);
-
-  // Use Intl to format tomorrow's date in user's timezone, then build a timestamp
+/**
+ * Get start/end of "tomorrow" in a timezone, for querying scheduled posts.
+ */
+function getTomorrowRange(timezone: string): { start: Date; end: Date } {
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
   const fmt = new Intl.DateTimeFormat('en-CA', {
     year: 'numeric', month: '2-digit', day: '2-digit',
     timeZone: timezone,
   });
   const dateStr = fmt.format(tomorrow); // "YYYY-MM-DD"
-  return new Date(`${dateStr}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`);
-}
-
-function getTomorrowDateRange(timezone: string): { start: Date; end: Date } {
-  const start = buildScheduledForDate(timezone, '00:00');
+  const start = new Date(`${dateStr}T00:00:00`);
   const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
   return { start, end };
-}
-
-// ── Check if user already has a draft for tomorrow ───────────────────────────
-
-async function hasExistingPostForTomorrow(userId: string, timezone: string): Promise<boolean> {
-  const { start, end } = getTomorrowDateRange(timezone);
-  const db = getAdminDb();
-  // Query by userId + scheduledFor range (no status filter — filter in JS to avoid composite index)
-  const snap = await db.collection(POSTS_COLLECTION)
-    .where('userId', '==', userId)
-    .where('scheduledFor', '>=', start)
-    .where('scheduledFor', '<', end)
-    .limit(5)
-    .get();
-  // Only count active posts (not rejected/skipped/failed)
-  return snap.docs.some(d => {
-    const s = d.data().status as string;
-    return s === 'pending_review' || s === 'approved';
-  });
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -97,94 +79,94 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const results: { userId: string; status: string; detail?: string }[] = [];
+  const results: { postId: string; userId: string; status: string; detail?: string }[] = [];
 
   try {
+    // 1. Get all scheduled posts (not yet generated)
+    const db = getAdminDb();
+    const scheduledSnap = await db.collection(POSTS_COLLECTION)
+      .where('status', '==', 'scheduled')
+      .get();
+
+    if (scheduledSnap.empty) {
+      return NextResponse.json({ success: true, processed: 0, results, message: 'No scheduled posts to process' });
+    }
+
+    // 2. Load all profiles (cached per run for efficiency)
     const profilesResult = await ProfileService.getAllProfiles();
-    const profiles = profilesResult.data ?? [];
+    const profileMap = new Map((profilesResult.data ?? []).map(p => [p.userId, p]));
 
-    for (const profile of profiles) {
-      const userId = profile.userId;
+    // 3. Process each scheduled post
+    for (const doc of scheduledSnap.docs) {
+      const data = doc.data();
+      const postId = doc.id;
+      const userId = data.userId as string;
+
       try {
+        // Get user profile
+        const profile = profileMap.get(userId);
+        if (!profile) {
+          results.push({ postId, userId, status: 'skipped', detail: 'no profile found' });
+          continue;
+        }
+
         const timezone = profile.timezone || 'Asia/Kolkata';
+        const draftHour = profile.draftGenerationHour ?? 21;
 
-        // 1. Check if tomorrow is a posting day
-        const dayKey = getTomorrowDayKey(timezone);
-        const dayConfig = profile.postingSchedule?.[dayKey];
-        if (!dayConfig?.enabled) {
-          results.push({ userId, status: 'skipped', detail: `${dayKey} not a posting day` });
+        // Check if now is the right time to generate for this user
+        if (!isDraftHour(timezone, draftHour)) {
+          // Not this user's draft hour — skip for now, will be picked up next run
           continue;
         }
 
-        // 2. Skip if already has a draft for tomorrow
-        const alreadyHas = await hasExistingPostForTomorrow(userId, timezone);
-        if (alreadyHas) {
-          results.push({ userId, status: 'skipped', detail: 'already has post for tomorrow' });
+        // Check if the post's scheduledFor is tomorrow (only generate night before)
+        const scheduledFor = (data.scheduledFor as Timestamp)?.toDate?.();
+        if (!scheduledFor) {
+          results.push({ postId, userId, status: 'skipped', detail: 'no scheduledFor date' });
           continue;
         }
 
-        // 3. Determine topic
-        const seriesResult = await SeriesService.getActiveSeries(userId);
-        const series = seriesResult.data;
-        const ideaResult = await IdeaService.getNextUnused(userId, series?.id);
-        const idea = ideaResult.data;
+        const { start, end } = getTomorrowRange(timezone);
+        if (scheduledFor < start || scheduledFor >= end) {
+          // Not for tomorrow — skip, will be picked up on the correct night
+          continue;
+        }
 
-        let topic: string;
-        let notes: string | undefined;
-        let seriesId: string | undefined;
-        let topicIndex: number | undefined;
+        // 4. Gather series context
+        const seriesId = data.seriesId as string | null;
         let seriesTitle: string | undefined;
-
-        if (idea) {
-          topic = idea.text;
-          seriesId = idea.seriesId ?? series?.id;
-          seriesTitle = series?.title;
-          await IdeaService.markUsed(idea.id);
-        } else if (series && series.currentIndex < series.topicQueue.length) {
-          const t = series.topicQueue[series.currentIndex];
-          topic = t.title;
-          notes = t.notes;
-          seriesId = series.id;
-          topicIndex = series.currentIndex;
-          seriesTitle = series.title;
-        } else {
-          results.push({ userId, status: 'skipped', detail: 'no topics available' });
-          continue;
-        }
-
-        // 4. Get continuity context
         let previousPostSummary: string | undefined;
+
         if (seriesId) {
+          const seriesResult = await SeriesService.getById(seriesId);
+          if (seriesResult.data) {
+            seriesTitle = seriesResult.data.title;
+          }
+
           const lastPost = await PostService.getLastPublishedInSeries(userId, seriesId);
           if (lastPost.data) previousPostSummary = lastPost.data.previousPostSummary ?? undefined;
         }
 
         // 5. Resolve media type + template
-        const mediaType: PostMediaType = profile.preferredMediaType ?? 'text';
-        let templateId: string | undefined;
+        const mediaType = (data.mediaType as PostMediaType) || profile.preferredMediaType || 'text';
+        const savedTemplateId = (data.templateId as string | null) ?? undefined;
         let templateHtml: string | undefined;
         let templateDimensions: { width: number; height?: number } | undefined;
-        let pageCount = 1;
 
-        if (mediaType === 'html') {
-          const tplId = series?.templateId;
-          if (tplId) {
-            const tplResult = await TemplateService.getById(tplId);
-            if (tplResult.data && tplResult.data.userId === userId) {
-              templateId = tplId;
-              templateHtml = tplResult.data.htmlContent;
-              templateDimensions = tplResult.data.dimensions;
-            }
+        if (mediaType === 'html' && savedTemplateId) {
+          const tplResult = await TemplateService.getById(savedTemplateId);
+          if (tplResult.data && tplResult.data.userId === userId) {
+            templateHtml = tplResult.data.htmlContent;
+            templateDimensions = tplResult.data.dimensions;
           }
-          pageCount = 3;
         }
 
-        // 6. Calculate schedule
-        const scheduledFor = buildScheduledForDate(timezone, dayConfig.postTime);
-        const reviewDeadline = new Date(scheduledFor.getTime() - 60 * 60 * 1000); // 1 hour before
+        const pageCount = (data.pageCount as number) || 1;
+        const topic = data.topic as string;
+        const notes = (data.notes as string) || undefined;
         const dayName = scheduledFor.toLocaleDateString('en-US', { weekday: 'long' });
 
-        // 7. Generate draft
+        // 6. Generate AI draft
         const draft = await generatePostDraft({
           userId,
           topic,
@@ -194,38 +176,42 @@ export async function POST(request: NextRequest) {
           persona: profile.persona ?? undefined,
           publishDay: dayName,
           mediaType,
-          templateId,
+          templateId: savedTemplateId,
           templateHtml,
           templateDimensions,
           pageCount,
-          provider: profile.preferredProvider,
-          textModel: profile.preferredTextModel,
+          provider: ((data.provider as string) || profile.preferredProvider) as 'gemini' | 'kieai' | undefined,
+          textModel: (data.textModel as string) || profile.preferredTextModel,
         });
 
-        // 8. Save to Firestore
-        await PostService.create({
-          userId,
-          topic,
+        // 7. Calculate review deadline from user's settings
+        const reviewDeadlineHour = profile.reviewDeadlineHour ?? 3;
+        const fmtDate = new Intl.DateTimeFormat('en-CA', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          timeZone: timezone,
+        });
+        const tomorrowDateStr = fmtDate.format(new Date(Date.now() + 24 * 60 * 60 * 1000));
+        const reviewDeadline = new Date(`${tomorrowDateStr}T${String(reviewDeadlineHour).padStart(2, '0')}:00:00`);
+
+        // 8. Update the post with generated content → pending_review
+        await doc.ref.update({
           content: draft.content,
-          scheduledFor,
-          reviewDeadline,
-          seriesId,
-          topicIndex,
-          previousPostSummary: draft.summary,
+          previousPostSummary: draft.summary ?? null,
           inputPrompt: `[Auto] Topic: ${topic}${notes ? `\nNotes: ${notes}` : ''}`,
-          mediaType,
-          mediaUrl: draft.media?.url,
-          mediaMimeType: draft.media?.mimeType,
-          mediaPrompt: draft.media?.prompt,
-          htmlContent: draft.htmlContent,
-          pageCount,
+          mediaUrl: draft.media?.url ?? null,
+          mediaMimeType: draft.media?.mimeType ?? null,
+          mediaPrompt: draft.media?.prompt ?? null,
+          htmlContent: draft.htmlContent ?? null,
+          reviewDeadline,
+          status: 'pending_review',
+          updatedAt: FieldValue.serverTimestamp(),
         });
 
-        results.push({ userId, status: 'generated', detail: topic });
-      } catch (userErr) {
-        const msg = userErr instanceof Error ? userErr.message : String(userErr);
-        console.error(`[generate-all] Failed for user ${userId}:`, userErr);
-        results.push({ userId, status: 'error', detail: msg });
+        results.push({ postId, userId, status: 'generated', detail: topic });
+      } catch (postErr) {
+        const msg = postErr instanceof Error ? postErr.message : String(postErr);
+        console.error(`[generate-all] Failed for post ${postId} (user ${userId}):`, postErr);
+        results.push({ postId, userId, status: 'error', detail: msg });
       }
     }
 

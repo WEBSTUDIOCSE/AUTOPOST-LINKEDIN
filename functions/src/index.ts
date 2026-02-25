@@ -3,14 +3,12 @@
  *
  * Three scheduled functions that call the Next.js admin API endpoints:
  *
- *   generateDrafts  — Every 5 min (testing) → /api/autoposter/generate-all
- *   cutoffReview    — Every 5 min (testing) → /api/autoposter/cutoff-all
- *   publishPosts    — Every 5 min (testing) → /api/autoposter/publish-all
+ *   generateDrafts  — Every 1 hour → /api/autoposter/generate-all
+ *   cutoffReview    — Every 1 hour → /api/autoposter/cutoff-all
+ *   publishPosts    — Every 1 hour → /api/autoposter/publish-all
  *
- * Production schedules (IST):
- *   generateDrafts  — 9 PM  Mon/Tue/Wed  → "0 21 * * 1,2,3"
- *   cutoffReview    — 3 AM  Tue/Wed/Thu  → "0 3 * * 2,3,4"
- *   publishPosts    — 8–11 AM Tue/Wed/Thu every 30 min → "0,30 8-11 * * 2,3,4"
+ * Each endpoint checks the user's timezone + configured hours (draftGenerationHour,
+ * reviewDeadlineHour, posting schedule) to determine if this is the right time to act.
  *
  * Required environment variables (set via Firebase Functions config):
  *   APP_URL      — Your deployed Next.js URL (e.g. https://your-app.vercel.app)
@@ -70,17 +68,13 @@ async function callEndpoint(path: string): Promise<void> {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 1. GENERATE DRAFTS
-// Runs every 5 minutes (testing). Switch to production schedule before go-live.
+// Runs every 1 hour. The endpoint checks each user's draftGenerationHour to
+// decide if this is the right time to generate for them.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const generateDrafts = onSchedule(
   {
-    // TESTING: every 5 minutes
-    schedule: 'every 5 minutes',
-
-    // PRODUCTION: uncomment this and comment out 'every 5 minutes' above
-    // schedule: '0 21 * * 1,2,3',  // 9 PM IST Mon/Tue/Wed
-
+    schedule: 'every 1 hours',
     timeZone: 'Asia/Kolkata',
     region: 'us-central1',
     timeoutSeconds: 540,  // 9 minutes — AI generation can be slow
@@ -93,17 +87,12 @@ export const generateDrafts = onSchedule(
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 2. CUTOFF REVIEW
-// Auto-skips posts that weren't reviewed before the deadline.
+// Runs every 1 hour. The endpoint skips posts past their reviewDeadline.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const cutoffReview = onSchedule(
   {
-    // TESTING: every 5 minutes
-    schedule: 'every 5 minutes',
-
-    // PRODUCTION: uncomment this and comment out 'every 5 minutes' above
-    // schedule: '0 3 * * 2,3,4',  // 3 AM IST Tue/Wed/Thu
-
+    schedule: 'every 1 hours',
     timeZone: 'Asia/Kolkata',
     region: 'us-central1',
     timeoutSeconds: 60,
@@ -116,17 +105,12 @@ export const cutoffReview = onSchedule(
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // 3. PUBLISH POSTS
-// Publishes approved posts whose scheduledFor time has arrived.
+// Runs every 1 hour. Publishes approved posts whose scheduledFor time has arrived.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const publishPosts = onSchedule(
   {
-    // TESTING: every 5 minutes
-    schedule: 'every 5 minutes',
-
-    // PRODUCTION: uncomment this and comment out 'every 5 minutes' above
-    // schedule: '0,30 8-11 * * 2,3,4',  // Every 30 min, 8–11 AM IST Tue/Wed/Thu
-
+    schedule: 'every 1 hours',
     timeZone: 'Asia/Kolkata',
     region: 'us-central1',
     timeoutSeconds: 300,  // LinkedIn uploads can be slow

@@ -91,6 +91,7 @@ export interface Idea {
  *                  → failed   (LinkedIn API error)
  */
 export type PostStatus =
+  | 'scheduled'
   | 'pending_review'
   | 'approved'
   | 'skipped'
@@ -159,6 +160,11 @@ export interface Post {
    * without needing a browser for HTML→PNG conversion.
    */
   imageUrls?: string[];
+
+  // ── AI model metadata (saved with scheduled posts for deferred generation) ──
+  templateId?: string;
+  provider?: string;
+  textModel?: string;
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */

@@ -87,6 +87,61 @@ export const PostService = {
     }, 'PostService.create');
   },
 
+  /**
+   * Create a scheduled placeholder post (no AI content yet).
+   * The Firebase function will generate the draft at the configured draftGenerationHour.
+   */
+  createScheduled(data: {
+    userId: string;
+    topic: string;
+    notes?: string;
+    scheduledFor: Date;
+    reviewDeadline: Date;
+    seriesId?: string;
+    topicIndex?: number;
+    mediaType?: PostMediaType;
+    templateId?: string;
+    pageCount?: number;
+    provider?: string;
+    textModel?: string;
+  }) {
+    return firebaseHandler(async () => {
+      const db = getAdminDb();
+      const ref = await db.collection(POSTS_COLLECTION).add({
+        userId: data.userId,
+        topic: data.topic,
+        notes: data.notes ?? null,
+        content: '',
+        scheduledFor: data.scheduledFor,
+        reviewDeadline: data.reviewDeadline,
+        seriesId: data.seriesId ?? null,
+        topicIndex: data.topicIndex ?? null,
+        previousPostSummary: null,
+        inputPrompt: null,
+        mediaType: data.mediaType ?? 'text',
+        templateId: data.templateId ?? null,
+        pageCount: data.pageCount ?? 1,
+        provider: data.provider ?? null,
+        textModel: data.textModel ?? null,
+        mediaUrl: null,
+        mediaMimeType: null,
+        mediaPrompt: null,
+        linkedinMediaAsset: null,
+        htmlContent: null,
+        editedContent: null,
+        imageUrls: null,
+        status: 'scheduled' as PostStatus,
+        publishedAt: null,
+        linkedinPostId: null,
+        failureReason: null,
+        retryCount: 0,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return ref.id;
+    }, 'PostService.createScheduled');
+  },
+
   /** Get a single post */
   getById(postId: string) {
     return firebaseHandler(async () => {

@@ -70,6 +70,7 @@ function timeAgo(date: Date | string): string {
 }
 
 const STATUS_CONFIG: Record<PostStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  scheduled: { label: 'Scheduled', variant: 'outline' },
   pending_review: { label: 'Pending', variant: 'outline' },
   approved: { label: 'Approved', variant: 'secondary' },
   published: { label: 'Published', variant: 'default' },

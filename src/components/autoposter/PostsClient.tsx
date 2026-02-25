@@ -96,6 +96,7 @@ function computeUpcomingSlots(schedule: PostingSchedule, maxSlots: number): Date
 }
 
 const STATUS_CONFIG: Record<PostStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ComponentType<{ className?: string }> }> = {
+  scheduled:      { label: 'Scheduled',    variant: 'outline', icon: CalendarClock },
   pending_review: { label: 'Needs Review', variant: 'default', icon: PenLine },
   approved:       { label: 'Approved',     variant: 'secondary', icon: CheckCircle2 },
   published:      { label: 'Published',    variant: 'secondary', icon: Send },
@@ -1279,9 +1280,8 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
   // Number of posts
   const [postCount, setPostCount] = useState(3);
 
-  // Generation state
+  // Scheduling state
   const [generating, setGenerating] = useState(false);
-  const [progress, setProgress] = useState({ current: 0, total: 0, currentTopic: '' });
   const [results, setResults] = useState<{ success: boolean; topic: string }[]>([]);
 
   // Computed data
@@ -1338,50 +1338,55 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
     if (maxPosts > 0 && postCount > maxPosts) setPostCount(maxPosts);
   }, [maxPosts, postCount]);
 
-  const handleGenerate = async () => {
+  const handleSchedule = async () => {
     if (!selectedSeries || maxPosts <= 0) return;
     const count = Math.min(postCount, maxPosts);
     setGenerating(true);
-    setProgress({ current: 0, total: count, currentTopic: '' });
-    setResults([]);
     setError('');
+    setResults([]);
 
-    const batch: { success: boolean; topic: string }[] = [];
-
-    for (let i = 0; i < count; i++) {
-      const topic = remainingTopics[i];
-      const slot = upcomingSlots[i];
-      setProgress({ current: i + 1, total: count, currentTopic: topic.title });
-
-      try {
+    try {
+      const posts = [];
+      for (let i = 0; i < count; i++) {
+        const topic = remainingTopics[i];
+        const slot = upcomingSlots[i];
         const reviewDeadline = new Date(slot.getTime() - 60 * 60 * 1000); // 1 hr before
-        const res = await fetch('/api/posts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            mode: 'scheduled',
-            topic: topic.title,
-            notes: topic.notes || undefined,
-            seriesId: selectedSeries.id,
-            mediaType,
-            templateId: mediaType === 'html' ? (templateId || selectedSeries.templateId || undefined) : undefined,
-            pageCount: mediaType === 'html' ? (parseInt(pageCount) || 1) : 1,
-            provider: provider || undefined,
-            textModel: textModel || undefined,
-            scheduledFor: slot.toISOString(),
-            reviewDeadline: reviewDeadline.toISOString(),
-          }),
+        posts.push({
+          topic: topic.title,
+          notes: topic.notes || undefined,
+          seriesId: selectedSeries.id,
+          topicIndex: selectedSeries.currentIndex + i,
+          mediaType,
+          templateId: mediaType === 'html' ? (templateId || selectedSeries.templateId || undefined) : undefined,
+          pageCount: mediaType === 'html' ? (parseInt(pageCount) || 1) : 1,
+          provider: provider || undefined,
+          textModel: textModel || undefined,
+          scheduledFor: slot.toISOString(),
+          reviewDeadline: reviewDeadline.toISOString(),
         });
-        const data = await res.json();
-        batch.push({ success: !!data.success, topic: topic.title });
-      } catch {
-        batch.push({ success: false, topic: topic.title });
       }
-      setResults([...batch]);
-    }
 
-    setGenerating(false);
-    if (batch.some(r => r.success)) onDone();
+      const res = await fetch('/api/posts/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ posts }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setResults(posts.map((p, i) => ({
+          success: i < (data.created ?? 0),
+          topic: p.topic,
+        })));
+        onDone();
+      } else {
+        setError(data.error || 'Failed to schedule posts');
+      }
+    } catch {
+      setError('Network error — please try again');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const reset = () => {
@@ -1397,7 +1402,6 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
     setError('');
     setResults([]);
     setGenerating(false);
-    setProgress({ current: 0, total: 0, currentTopic: '' });
   };
 
   const handleClose = () => {
@@ -1422,7 +1426,7 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
         <DialogHeader className="flex-shrink-0">
           <DialogTitle>Schedule Series Posts</DialogTitle>
           <DialogDescription>
-            Auto-generate drafts from your series topics for upcoming posting slots.
+            Book series topics into your posting slots. AI drafts are generated automatically the night before each posting day.
           </DialogDescription>
         </DialogHeader>
 
@@ -1438,7 +1442,7 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="h-5 w-5 text-green-600" />
                 <span className="font-medium">
-                  {results.filter(r => r.success).length} of {results.length} drafts generated
+                  {results.filter(r => r.success).length} of {results.length} posts scheduled
                 </span>
               </div>
               <div className="space-y-1.5">
@@ -1452,7 +1456,7 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Review your drafts in the &ldquo;Needs Review&rdquo; tab.
+                AI drafts will be generated at your configured draft hour (night before). Review them in the &ldquo;Scheduled&rdquo; tab.
               </p>
             </div>
           ) : noActiveSeries ? (
@@ -1638,29 +1642,6 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
                     </div>
                   )}
 
-                  {/* Progress */}
-                  {generating && (
-                    <div className="space-y-2 py-2">
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span className="text-sm font-medium">
-                          Generating {progress.current} of {progress.total}…
-                        </span>
-                      </div>
-                      {progress.currentTopic && (
-                        <p className="text-xs text-muted-foreground pl-6 truncate">
-                          Current: {progress.currentTopic}
-                        </p>
-                      )}
-                      <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all duration-500"
-                          style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
                   {error && <p className="text-sm text-destructive">{error}</p>}
                 </>
               )}
@@ -1675,11 +1656,11 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
             <>
               <Button variant="outline" onClick={handleClose} disabled={generating}>Cancel</Button>
               {!noActiveSeries && !noSlots && !noTopics && !profileLoading && (
-                <Button onClick={handleGenerate} disabled={generating || maxPosts <= 0}>
+                <Button onClick={handleSchedule} disabled={generating || maxPosts <= 0}>
                   {generating ? (
-                    <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Generating…</>
+                    <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Scheduling…</>
                   ) : (
-                    <><Sparkles className="mr-1.5 h-4 w-4" />Generate {effectiveCount} Draft{effectiveCount !== 1 ? 's' : ''}</>
+                    <><CalendarClock className="mr-1.5 h-4 w-4" />Schedule {effectiveCount} Post{effectiveCount !== 1 ? 's' : ''}</>
                   )}
                 </Button>
               )}
@@ -2282,6 +2263,7 @@ export default function PostsClient() {
   }, [fetchData]);
 
   // Group posts
+  const scheduled = posts.filter(p => p.status === 'scheduled');
   const pending  = posts.filter(p => p.status === 'pending_review');
   const approved = posts.filter(p => p.status === 'approved');
   const history  = posts.filter(p => ['published', 'rejected', 'skipped', 'failed'].includes(p.status));
@@ -2307,8 +2289,16 @@ export default function PostsClient() {
       {loading ? (
         <PostsSkeleton />
       ) : (
-        <Tabs defaultValue="pending">
+        <Tabs defaultValue="scheduled">
           <TabsList className="mb-4">
+            <TabsTrigger value="scheduled">
+              Scheduled
+              {scheduled.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-secondary text-foreground text-[10px] px-1.5 py-0.5 font-medium">
+                  {scheduled.length}
+                </span>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="pending">
               Needs Review
               {pending.length > 0 && (
@@ -2327,6 +2317,24 @@ export default function PostsClient() {
             </TabsTrigger>
             <TabsTrigger value="history">History</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="scheduled" className="space-y-3">
+            {scheduled.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="rounded-full bg-secondary p-3 mb-4">
+                    <CalendarClock className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">No scheduled posts</p>
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xs">
+                    Use &quot;Schedule Posts&quot; to book series topics into your posting slots. AI drafts will be generated the night before.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              scheduled.map(post => <PostCard key={post.id} post={post} onAction={handleAction} />)
+            )}
+          </TabsContent>
 
           <TabsContent value="pending" className="space-y-3">
             {pending.length === 0 ? (
