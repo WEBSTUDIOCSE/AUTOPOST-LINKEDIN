@@ -1271,6 +1271,11 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
   const [templateId, setTemplateId] = useState('');
   const [pageCount, setPageCount] = useState('1');
 
+  // AI model overrides
+  const [provider, setProvider] = useState<TestProvider>('gemini');
+  const [textModel, setTextModel] = useState(getDefaultModel('gemini', 'text'));
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   // Number of posts
   const [postCount, setPostCount] = useState(3);
 
@@ -1307,6 +1312,9 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
           if (data.success && data.data) {
             setProfile(data.data);
             if (data.data.preferredMediaType) setMediaType(data.data.preferredMediaType);
+            const p: TestProvider = data.data.preferredProvider || 'gemini';
+            setProvider(p);
+            setTextModel(data.data.preferredTextModel || getDefaultModel(p, 'text'));
           }
         } catch {
           setError('Failed to load profile settings.');
@@ -1358,8 +1366,8 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
             mediaType,
             templateId: mediaType === 'html' ? (templateId || selectedSeries.templateId || undefined) : undefined,
             pageCount: mediaType === 'html' ? (parseInt(pageCount) || 1) : 1,
-            provider: profile?.preferredProvider || undefined,
-            textModel: profile?.preferredTextModel || undefined,
+            provider: provider || undefined,
+            textModel: textModel || undefined,
             scheduledFor: slot.toISOString(),
             reviewDeadline: reviewDeadline.toISOString(),
           }),
@@ -1382,6 +1390,10 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
     setMediaType(profile?.preferredMediaType || 'html');
     setTemplateId('');
     setPageCount('1');
+    const p: TestProvider = profile?.preferredProvider || 'gemini';
+    setProvider(p);
+    setTextModel(profile?.preferredTextModel || getDefaultModel(p, 'text'));
+    setShowAdvanced(false);
     setError('');
     setResults([]);
     setGenerating(false);
@@ -1572,6 +1584,57 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+
+                  {/* AI Model & Settings */}
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvanced(v => !v)}
+                    disabled={generating}
+                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                    AI Model &amp; Settings
+                    {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                  </button>
+
+                  {showAdvanced && (
+                    <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+                      {/* Provider */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Provider</Label>
+                        <Select
+                          value={provider}
+                          onValueChange={(v) => {
+                            const p = v as TestProvider;
+                            setProvider(p);
+                            setTextModel(getDefaultModel(p, 'text'));
+                          }}
+                          disabled={generating}
+                        >
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {PROVIDERS.map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Text Model */}
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-muted-foreground">Text Model</Label>
+                        <Select value={textModel} onValueChange={setTextModel} disabled={generating}>
+                          <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {getModels(provider, 'text').map((m: ModelOption) => (
+                              <SelectItem key={m.id} value={m.id}>
+                                <span className="font-medium">{m.label}</span>
+                                <span className="text-[10px] text-muted-foreground ml-1.5">({m.vendor})</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
 

@@ -143,6 +143,20 @@ export const ProfileService = {
     }, 'ProfileService.setFcmToken');
   },
 
+  // ── Admin (cron jobs) ────────────────────────────────────────────────────
+
+  /**
+   * Get ALL autoposter profiles (admin use only — for scheduled functions).
+   * Returns every document in the profiles collection.
+   */
+  getAllProfiles() {
+    return firebaseHandler(async () => {
+      const db = getAdminDb();
+      const snap = await db.collection(PROFILES_COLLECTION).get();
+      return snap.docs.map(d => toProfile(d.data()));
+    }, 'ProfileService.getAllProfiles');
+  },
+
   // ── Schedule ─────────────────────────────────────────────────────────────
 
   /** Update the posting schedule */
