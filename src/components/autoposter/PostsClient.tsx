@@ -42,7 +42,7 @@ import {
   IMAGE_SIZES, VIDEO_RESOLUTIONS, VIDEO_DURATIONS,
 } from '@/components/ai-test/catalog';
 import type { TestProvider, TestCapability, ModelOption } from '@/components/ai-test/types';
-import type { Post, PostStatus, PostMediaType, Series, HtmlTemplate } from '@/lib/linkedin/types';
+import type { Post, PostStatus, PostMediaType, Series, HtmlTemplate, AutoposterProfile, PostingSchedule } from '@/lib/linkedin/types';
 import html2canvas from 'html2canvas';
 import { removeSlideFromHtml } from '@/lib/html-gen/utils';
 
@@ -65,6 +65,34 @@ function toLocalDatetimeValue(d: Date | string) {
   const date = typeof d === 'string' ? new Date(d) : d;
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// ── Compute upcoming posting slots from weekly schedule ─────────────────────
+
+const DAY_INDEX_MAP: Record<number, keyof PostingSchedule> = {
+  0: 'sunday', 1: 'monday', 2: 'tuesday', 3: 'wednesday',
+  4: 'thursday', 5: 'friday', 6: 'saturday',
+};
+
+function computeUpcomingSlots(schedule: PostingSchedule, maxSlots: number): Date[] {
+  const slots: Date[] = [];
+  const now = new Date();
+  const cursor = new Date(now);
+  cursor.setHours(0, 0, 0, 0);
+
+  // Scan up to 8 weeks ahead
+  for (let d = 0; d < 56 && slots.length < maxSlots; d++) {
+    const dayKey = DAY_INDEX_MAP[cursor.getDay()];
+    const dayConfig = schedule[dayKey];
+    if (dayConfig.enabled) {
+      const [h, m] = dayConfig.postTime.split(':').map(Number);
+      const slotDate = new Date(cursor);
+      slotDate.setHours(h, m, 0, 0);
+      if (slotDate > now) slots.push(slotDate);
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return slots;
 }
 
 const STATUS_CONFIG: Record<PostStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ComponentType<{ className?: string }> }> = {
@@ -1220,134 +1248,380 @@ function PostNowDialog({ seriesList, templates, onDone }: PostNowDialogProps) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// SCHEDULE DIALOG — AI generates → saved for later review/publish
+// SCHEDULE DIALOG — batch-generate drafts from series + posting schedule
 // ═══════════════════════════════════════════════════════════════════════════════
 
 interface ScheduleDialogProps {
   seriesList: Series[];
   templates: HtmlTemplate[];
-  onCreated: (draft: { postId: string; content: string; summary: string; htmlContent?: string; mediaType?: PostMediaType; pageCount?: number }) => void;
+  onDone: () => void;
 }
 
-function ScheduleDialog({ seriesList, templates, onCreated }: ScheduleDialogProps) {
+function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profile, setProfile] = useState<AutoposterProfile | null>(null);
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState<GenerationFormData>({ ...DEFAULT_FORM });
+  // Series selection
+  const [selectedSeriesId, setSelectedSeriesId] = useState('');
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(10, 0, 0, 0);
-  const deadline = new Date(tomorrow);
-  deadline.setHours(9, 0, 0, 0);
+  // Content overrides
+  const [mediaType, setMediaType] = useState<PostMediaType>('html');
+  const [templateId, setTemplateId] = useState('');
+  const [pageCount, setPageCount] = useState('1');
 
-  const [schedule, setSchedule] = useState({
-    scheduledFor: toLocalDatetimeValue(tomorrow),
-    reviewDeadline: toLocalDatetimeValue(deadline),
-  });
+  // Number of posts
+  const [postCount, setPostCount] = useState(3);
+
+  // Generation state
+  const [generating, setGenerating] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentTopic: '' });
+  const [results, setResults] = useState<{ success: boolean; topic: string }[]>([]);
+
+  // Computed data
+  const activeSeries = useMemo(() => seriesList.filter(s => s.status === 'active'), [seriesList]);
+  const selectedSeries = seriesList.find(s => s.id === selectedSeriesId);
+  const remainingTopics = selectedSeries
+    ? selectedSeries.topicQueue.slice(selectedSeries.currentIndex)
+    : [];
+
+  const upcomingSlots = useMemo(() => {
+    if (!profile?.postingSchedule) return [];
+    return computeUpcomingSlots(profile.postingSchedule, 20);
+  }, [profile?.postingSchedule]);
+
+  const maxPosts = Math.min(remainingTopics.length, upcomingSlots.length);
+
+  // Fetch profile when dialog opens
+  useEffect(() => {
+    if (open) {
+      setError('');
+      setResults([]);
+      setGenerating(false);
+      (async () => {
+        setProfileLoading(true);
+        try {
+          const res = await fetch('/api/autoposter/profile');
+          const data = await res.json();
+          if (data.success && data.data) {
+            setProfile(data.data);
+            if (data.data.preferredMediaType) setMediaType(data.data.preferredMediaType);
+          }
+        } catch {
+          setError('Failed to load profile settings.');
+        } finally {
+          setProfileLoading(false);
+        }
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Auto-select first active series
+  useEffect(() => {
+    if (activeSeries.length > 0 && !selectedSeriesId) {
+      setSelectedSeriesId(activeSeries[0].id);
+    }
+  }, [activeSeries, selectedSeriesId]);
+
+  // Clamp post count
+  useEffect(() => {
+    if (maxPosts > 0 && postCount > maxPosts) setPostCount(maxPosts);
+  }, [maxPosts, postCount]);
+
+  const handleGenerate = async () => {
+    if (!selectedSeries || maxPosts <= 0) return;
+    const count = Math.min(postCount, maxPosts);
+    setGenerating(true);
+    setProgress({ current: 0, total: count, currentTopic: '' });
+    setResults([]);
+    setError('');
+
+    const batch: { success: boolean; topic: string }[] = [];
+
+    for (let i = 0; i < count; i++) {
+      const topic = remainingTopics[i];
+      const slot = upcomingSlots[i];
+      setProgress({ current: i + 1, total: count, currentTopic: topic.title });
+
+      try {
+        const reviewDeadline = new Date(slot.getTime() - 60 * 60 * 1000); // 1 hr before
+        const res = await fetch('/api/posts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'scheduled',
+            topic: topic.title,
+            notes: topic.notes || undefined,
+            seriesId: selectedSeries.id,
+            mediaType,
+            templateId: mediaType === 'html' ? (templateId || selectedSeries.templateId || undefined) : undefined,
+            pageCount: mediaType === 'html' ? (parseInt(pageCount) || 1) : 1,
+            provider: profile?.preferredProvider || undefined,
+            textModel: profile?.preferredTextModel || undefined,
+            scheduledFor: slot.toISOString(),
+            reviewDeadline: reviewDeadline.toISOString(),
+          }),
+        });
+        const data = await res.json();
+        batch.push({ success: !!data.success, topic: topic.title });
+      } catch {
+        batch.push({ success: false, topic: topic.title });
+      }
+      setResults([...batch]);
+    }
+
+    setGenerating(false);
+    if (batch.some(r => r.success)) onDone();
+  };
 
   const reset = () => {
-    setForm({ ...DEFAULT_FORM });
-    setSchedule({
-      scheduledFor: toLocalDatetimeValue(tomorrow),
-      reviewDeadline: toLocalDatetimeValue(deadline),
-    });
+    setSelectedSeriesId(activeSeries[0]?.id || '');
+    setPostCount(3);
+    setMediaType(profile?.preferredMediaType || 'html');
+    setTemplateId('');
+    setPageCount('1');
     setError('');
+    setResults([]);
+    setGenerating(false);
+    setProgress({ current: 0, total: 0, currentTopic: '' });
   };
 
-  const handleSubmit = async () => {
-    if (!form.topic.trim()) { setError('Topic is required.'); return; }
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: 'scheduled',
-          topic: form.topic.trim(),
-          notes: form.notes.trim() || undefined,
-          seriesId: form.seriesId || undefined,
-          mediaType: form.mediaType,
-          ...buildModelPayload(form),
-          scheduledFor: new Date(schedule.scheduledFor).toISOString(),
-          reviewDeadline: new Date(schedule.reviewDeadline).toISOString(),
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error ?? 'Failed');
-      onCreated(data.data);
-      setOpen(false);
-      reset();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong.');
-    } finally {
-      setLoading(false);
-    }
+  const handleClose = () => {
+    if (!generating) { setOpen(false); reset(); }
   };
+
+  const noActiveSeries = activeSeries.length === 0;
+  const noSlots = upcomingSlots.length === 0 && !profileLoading;
+  const noTopics = !!selectedSeries && remainingTopics.length === 0;
+  const hasResults = results.length > 0;
+  const effectiveCount = Math.min(postCount, maxPosts);
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!generating) { setOpen(v); if (!v) reset(); } }}>
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <CalendarClock className="mr-1.5 h-4 w-4" />
-          Schedule Post
+          Schedule Posts
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl flex flex-col max-h-[90dvh]">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Schedule AI Post</DialogTitle>
+          <DialogTitle>Schedule Series Posts</DialogTitle>
           <DialogDescription>
-            AI generates the content now. You review it before the scheduled publish time.
+            Auto-generate drafts from your series topics for upcoming posting slots.
           </DialogDescription>
         </DialogHeader>
+
         <div className="space-y-4 py-2 overflow-y-auto flex-1 min-h-0 pr-1">
-          <GenerationFields
-            form={form}
-            setForm={setForm}
-            seriesList={seriesList}
-            templates={templates}
-            disabled={loading}
-            showSeries
-          />
-
-          <Separator />
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Publish at</Label>
-              <Input
-                type="datetime-local"
-                value={schedule.scheduledFor}
-                onChange={(e) => setSchedule(s => ({ ...s, scheduledFor: e.target.value }))}
-                disabled={loading}
-              />
+          {profileLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">Loading settings…</span>
             </div>
-            <div className="space-y-1.5">
-              <Label>Review by</Label>
-              <Input
-                type="datetime-local"
-                value={schedule.reviewDeadline}
-                onChange={(e) => setSchedule(s => ({ ...s, reviewDeadline: e.target.value }))}
-                disabled={loading}
-              />
+          ) : hasResults ? (
+            /* ── Generation Results ─────────────────────────────────── */
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                <span className="font-medium">
+                  {results.filter(r => r.success).length} of {results.length} drafts generated
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {results.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    {r.success
+                      ? <CheckCircle2 className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      : <XCircle className="h-3.5 w-3.5 text-destructive shrink-0" />}
+                    <span className={cn(!r.success && 'text-destructive')}>{r.topic}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Review your drafts in the &ldquo;Needs Review&rdquo; tab.
+              </p>
             </div>
-          </div>
+          ) : noActiveSeries ? (
+            /* ── No Series ─────────────────────────────────────────── */
+            <div className="text-center py-8">
+              <p className="text-sm font-medium">No active series</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Create a series with topics in the Series tab to start scheduling.
+              </p>
+            </div>
+          ) : (
+            /* ── Main Form ─────────────────────────────────────────── */
+            <>
+              {/* Series Selector */}
+              <div className="space-y-1.5">
+                <Label>Series</Label>
+                <Select value={selectedSeriesId} onValueChange={setSelectedSeriesId} disabled={generating}>
+                  <SelectTrigger><SelectValue placeholder="Select a series" /></SelectTrigger>
+                  <SelectContent>
+                    {activeSeries.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="font-medium">{s.title}</span>
+                        <span className="text-xs text-muted-foreground ml-1.5">
+                          ({s.topicQueue.length - s.currentIndex} topics left)
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
+              {noTopics ? (
+                <div className="text-center py-6">
+                  <p className="text-sm font-medium">All topics exhausted</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Add more topics to this series, or select a different one.
+                  </p>
+                </div>
+              ) : noSlots ? (
+                <div className="text-center py-6">
+                  <p className="text-sm font-medium">No posting days configured</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enable posting days and times in Settings first.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Upcoming Topic → Slot mapping */}
+                  {selectedSeries && remainingTopics.length > 0 && upcomingSlots.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">
+                        Topic → Posting Slot ({remainingTopics.length} topics, {upcomingSlots.length} slots available)
+                      </Label>
+                      <div className="rounded-lg border divide-y max-h-40 overflow-y-auto">
+                        {remainingTopics.slice(0, effectiveCount).map((t, i) => (
+                          <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
+                            <span className="text-xs text-muted-foreground font-mono shrink-0 w-5 text-right">
+                              {i + 1}.
+                            </span>
+                            <span className="font-medium flex-1 min-w-0 truncate">{t.title}</span>
+                            <span className="text-xs text-muted-foreground shrink-0">
+                              → {formatDateTime(upcomingSlots[i])}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <Separator />
+
+                  {/* Post Count */}
+                  <div className="space-y-1.5">
+                    <Label>Number of Posts</Label>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline" size="icon" className="h-8 w-8"
+                        onClick={() => setPostCount(c => Math.max(1, c - 1))}
+                        disabled={generating || effectiveCount <= 1}
+                      >
+                        <span className="text-lg font-medium leading-none">−</span>
+                      </Button>
+                      <span className="text-lg font-semibold w-8 text-center">{effectiveCount}</span>
+                      <Button
+                        variant="outline" size="icon" className="h-8 w-8"
+                        onClick={() => setPostCount(c => Math.min(maxPosts, c + 1))}
+                        disabled={generating || effectiveCount >= maxPosts}
+                      >
+                        <span className="text-lg font-medium leading-none">+</span>
+                      </Button>
+                      <span className="text-xs text-muted-foreground">of {maxPosts} available</span>
+                    </div>
+                  </div>
+
+                  {/* Content Type */}
+                  <ContentTypeSelector value={mediaType} onChange={setMediaType} disabled={generating} />
+
+                  {/* Template (HTML only) */}
+                  {mediaType === 'html' && templates.length > 0 && (
+                    <div className="space-y-1.5">
+                      <Label>Template</Label>
+                      <Select
+                        value={templateId || selectedSeries?.templateId || '_none'}
+                        onValueChange={(v) => setTemplateId(v === '_none' ? '' : v)}
+                        disabled={generating}
+                      >
+                        <SelectTrigger><SelectValue placeholder="No template" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">No template (default style)</SelectItem>
+                          {templates.map(t => (
+                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Page Count (HTML only) */}
+                  {mediaType === 'html' && (
+                    <div className="space-y-1.5">
+                      <Label>Pages <span className="text-xs text-muted-foreground">(1 = single card, 2+ = carousel)</span></Label>
+                      <Select value={pageCount} onValueChange={setPageCount} disabled={generating}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6].map(n => (
+                            <SelectItem key={n} value={String(n)}>
+                              {n === 1 ? '1 page (single card)' : `${n} pages`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Progress */}
+                  {generating && (
+                    <div className="space-y-2 py-2">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm font-medium">
+                          Generating {progress.current} of {progress.total}…
+                        </span>
+                      </div>
+                      {progress.currentTopic && (
+                        <p className="text-xs text-muted-foreground pl-6 truncate">
+                          Current: {progress.currentTopic}
+                        </p>
+                      )}
+                      <div className="w-full h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{ width: `${(progress.current / progress.total) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {error && <p className="text-sm text-destructive">{error}</p>}
+                </>
+              )}
+            </>
+          )}
         </div>
+
         <DialogFooter className="flex-shrink-0">
-          <Button variant="outline" onClick={() => { setOpen(false); reset(); }} disabled={loading}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={loading || !form.topic.trim()}>
-            {loading ? (
-              <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Generating…</>
-            ) : (
-              <><Sparkles className="mr-1.5 h-4 w-4" />Generate &amp; Schedule</>
-            )}
-          </Button>
+          {hasResults ? (
+            <Button onClick={handleClose}>Done</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleClose} disabled={generating}>Cancel</Button>
+              {!noActiveSeries && !noSlots && !noTopics && !profileLoading && (
+                <Button onClick={handleGenerate} disabled={generating || maxPosts <= 0}>
+                  {generating ? (
+                    <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" />Generating…</>
+                  ) : (
+                    <><Sparkles className="mr-1.5 h-4 w-4" />Generate {effectiveCount} Draft{effectiveCount !== 1 ? 's' : ''}</>
+                  )}
+                </Button>
+              )}
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -1960,7 +2234,7 @@ export default function PostsClient() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <ScheduleDialog seriesList={seriesList} templates={templates} onCreated={(d) => { setNewDraft(d); fetchData(); }} />
+          <ScheduleDialog seriesList={seriesList} templates={templates} onDone={fetchData} />
           <PostNowDialog seriesList={seriesList} templates={templates} onDone={fetchData} />
         </div>
       </div>
