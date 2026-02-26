@@ -37,9 +37,8 @@ import {
   Code2,
   Trash2,
   Pencil,
-  Eye,
   Copy,
-  X,
+  Maximize2,
 } from 'lucide-react';
 import type { HtmlTemplate } from '@/lib/linkedin/types';
 
@@ -67,6 +66,9 @@ function TemplatePreview({
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
 
+  // When height=0 (auto-height preset), fall back to a square so preview isn't invisible
+  const effectiveH = (dimensions.height ?? 0) > 0 ? dimensions.height : dimensions.width;
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -81,13 +83,13 @@ function TemplatePreview({
     return () => observer.disconnect();
   }, [dimensions.width]);
 
-  const scaledHeight = dimensions.height * scale;
+  const scaledHeight = effectiveH * scale;
 
   return (
     <div
       ref={containerRef}
       className={className}
-      style={{ height: scale > 0 ? `${scaledHeight}px` : '200px', position: 'relative', overflow: 'hidden' }}
+      style={{ height: scale > 0 ? `${Math.max(scaledHeight, 80)}px` : '220px', position: 'relative', overflow: 'hidden' }}
     >
       {scale > 0 && (
         <iframe
@@ -96,7 +98,7 @@ function TemplatePreview({
           title="Template preview"
           style={{
             width: `${dimensions.width}px`,
-            height: `${dimensions.height}px`,
+            height: `${effectiveH}px`,
             transform: `scale(${scale})`,
             transformOrigin: 'top left',
             border: 'none',
@@ -107,6 +109,42 @@ function TemplatePreview({
         />
       )}
     </div>
+  );
+}
+
+// ── Full-Screen Preview Dialog ───────────────────────────────────────────────
+
+function FullPreviewDialog({
+  template,
+  open,
+  onOpenChange,
+}: {
+  template: HtmlTemplate | null;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  if (!template) return null;
+  const dimLabel = template.dimensions.height > 0
+    ? `${template.dimensions.width}×${template.dimensions.height}`
+    : `${template.dimensions.width}×auto`;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-5xl flex flex-col max-h-[95dvh]">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            {template.name}
+            <span className="text-xs font-normal text-muted-foreground">{dimLabel}</span>
+          </DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 min-h-0 overflow-auto rounded-lg border bg-black">
+          <TemplatePreview
+            html={template.htmlContent}
+            dimensions={template.dimensions}
+            className="w-full"
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -137,7 +175,7 @@ function TemplateDialog({
   const [dimensions, setDimensions] = useState(
     template?.dimensions ?? { width: 1080, height: 1080 }
   );
-  const [showPreview, setShowPreview] = useState(false);
+  // Preview is always visible when there is HTML content
 
   // Reset form when dialog opens with different template
   useEffect(() => {
@@ -145,7 +183,6 @@ function TemplateDialog({
     setDescription(template?.description ?? '');
     setHtmlContent(template?.htmlContent ?? '');
     setDimensions(template?.dimensions ?? { width: 1080, height: 1080 });
-    setShowPreview(false);
   }, [template, open]);
 
   const currentPreset = DIMENSION_PRESETS.find(
@@ -216,31 +253,20 @@ function TemplateDialog({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="tpl-html">HTML Content <span className="text-destructive">*</span></Label>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setShowPreview(v => !v)}
-                disabled={!htmlContent.trim()}
-              >
-                <Eye className="mr-1 h-3 w-3" />
-                {showPreview ? 'Hide Preview' : 'Preview'}
-              </Button>
             </div>
             <Textarea
               id="tpl-html"
               placeholder="Paste your complete HTML template here…"
-              rows={showPreview ? 8 : 14}
+              rows={htmlContent.trim() ? 10 : 14}
               value={htmlContent}
               onChange={(e) => setHtmlContent(e.target.value)}
               className="font-mono text-xs"
             />
           </div>
 
-          {showPreview && htmlContent.trim() && (
+          {htmlContent.trim() && (
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Preview</Label>
+              <Label className="text-xs text-muted-foreground">Live Preview</Label>
               <div className="rounded-lg border overflow-hidden bg-black">
                 <TemplatePreview html={htmlContent} dimensions={dimensions} />
               </div>
@@ -268,21 +294,34 @@ function TemplateCard({
   onEdit,
   onDelete,
   onDuplicate,
+  onExpand,
 }: {
   template: HtmlTemplate;
   onEdit: (t: HtmlTemplate) => void;
   onDelete: (t: HtmlTemplate) => void;
   onDuplicate: (t: HtmlTemplate) => void;
+  onExpand: (t: HtmlTemplate) => void;
 }) {
   return (
     <Card className="overflow-hidden">
-      {/* Preview */}
-      <div className="bg-black border-b">
+      {/* Preview — click to open full-screen */}
+      <div
+        className="bg-black border-b relative group cursor-pointer"
+        onClick={() => onExpand(template)}
+        title="Click to expand preview"
+      >
         <TemplatePreview
           html={template.htmlContent}
           dimensions={template.dimensions}
           className="w-full"
         />
+        {/* Hover overlay with expand hint */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-background/90 rounded-lg px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium shadow">
+            <Maximize2 className="h-3.5 w-3.5" />
+            Full preview
+          </div>
+        </div>
       </div>
 
       {/* Info */}
@@ -327,6 +366,8 @@ export default function TemplatesClient() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<HtmlTemplate | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<HtmlTemplate | null>(null);
+  const [fullPreviewTemplate, setFullPreviewTemplate] = useState<HtmlTemplate | null>(null);
+  const [fullPreviewOpen, setFullPreviewOpen] = useState(false);
 
   const fetchTemplates = useCallback(async () => {
     if (!user) return;
@@ -422,6 +463,11 @@ export default function TemplatesClient() {
     setDialogOpen(true);
   };
 
+  const openFullPreview = (t: HtmlTemplate) => {
+    setFullPreviewTemplate(t);
+    setFullPreviewOpen(true);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -477,6 +523,7 @@ export default function TemplatesClient() {
               onEdit={openEdit}
               onDelete={setDeleteTarget}
               onDuplicate={handleDuplicate}
+              onExpand={openFullPreview}
             />
           ))}
         </div>
@@ -492,6 +539,16 @@ export default function TemplatesClient() {
         }}
         onSave={handleSave}
         saving={saving}
+      />
+
+      {/* Full-Screen Preview */}
+      <FullPreviewDialog
+        template={fullPreviewTemplate}
+        open={fullPreviewOpen}
+        onOpenChange={(v) => {
+          setFullPreviewOpen(v);
+          if (!v) setFullPreviewTemplate(null);
+        }}
       />
 
       {/* Delete Confirmation */}

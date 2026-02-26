@@ -14,8 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Textarea } from '@/components/ui/textarea';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -33,8 +31,6 @@ import {
   Unplug,
   Loader2,
   Bot,
-  AlertCircle,
-  User,
 } from 'lucide-react';
 import type { AutoposterProfile, PostingDay, PostingSchedule } from '@/lib/linkedin/types';
 
@@ -175,7 +171,6 @@ export default function SettingsClient() {
   const [preferredProvider, setPreferredProvider] = useState('_default');
   const [preferredTextModel, setPreferredTextModel] = useState('');
   const [preferredMediaType, setPreferredMediaType] = useState('text');
-  const [persona, setPersona] = useState('');
 
 
 
@@ -195,7 +190,6 @@ export default function SettingsClient() {
         setPreferredProvider(p.preferredProvider ?? '_default');
         setPreferredTextModel(p.preferredTextModel ?? '');
         setPreferredMediaType(p.preferredMediaType ?? 'text');
-        setPersona(p.persona ?? '');
       } else {
         // Create profile if it doesn't exist
         await fetch('/api/autoposter/profile', { method: 'POST' });
@@ -245,8 +239,6 @@ export default function SettingsClient() {
       preferredTextModel: preferredTextModel.trim() || null,
       preferredMediaType,
     });
-  const savePersona = () =>
-    saveField('persona', { persona: persona.trim() || null });
 
   const enableNotifications = async () => {
     setSaving('notifications');
@@ -435,35 +427,6 @@ export default function SettingsClient() {
           </div>
         </div>
       </SettingsSection>
-
-      {/* ── Persona ───────────────────────────────────────────────────────── */}
-      <SettingsSection
-        icon={User}
-        title="Writing Persona"
-        description="Describe your writing style so every AI draft sounds like you."
-      >
-        <div className="space-y-4">
-          <Textarea
-            placeholder="e.g. I write short, punchy LinkedIn posts with 2-3 paragraphs. I use emojis sparingly. I share what I built and what I learned."
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            className="min-h-[100px] text-sm resize-y"
-            rows={4}
-          />
-          <div className="flex justify-end">
-            <Button size="sm" onClick={savePersona} disabled={saving === 'persona'} className="w-full sm:w-auto touch-manipulation">
-              {saving === 'persona' ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Check className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              Save Persona
-            </Button>
-          </div>
-        </div>
-      </SettingsSection>
-
-      <Separator />
 
       {/* ── Posting Schedule ──────────────────────────────────────────────── */}
       <SettingsSection
