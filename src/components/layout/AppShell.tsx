@@ -95,7 +95,7 @@ function DesktopSidebar({ pathname }: { pathname: string }) {
         <Link href="/dashboard" className="flex items-center gap-2">
           <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
             <Image
-              src="/icons/linkedin-512x512.png"
+              src="/icon.png"
               alt="LinkedIn AutoPoster"
               fill
               className="object-cover"
@@ -144,7 +144,7 @@ function MobileHeader({ pathname }: { pathname: string }) {
       <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
           <Image
-            src="/icons/linkedin-512x512.png"
+            src="/icon.png"
             alt="LinkedIn AutoPoster"
             fill
             className="object-cover"

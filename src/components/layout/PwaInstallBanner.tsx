@@ -180,7 +180,7 @@ export default function PwaInstallBanner() {
           <div className="flex items-start gap-3 mb-4">
             <div className="relative h-12 w-12 shrink-0 rounded-xl overflow-hidden border border-border bg-[#0A66C2]">
               <Image
-                src="/icons/linkedin-512x512.png"
+                src="/icon.png"
                 alt="LinkedIn AutoPoster"
                 fill
                 className="object-cover"

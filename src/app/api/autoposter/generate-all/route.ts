@@ -182,14 +182,34 @@ export async function POST(request: NextRequest) {
           textModel: (data.textModel as string) || profile.preferredTextModel,
         });
 
-        // 7. Calculate review deadline from user's settings (on the same day as scheduledFor)
+        // 7. Calculate review deadline in the user's timezone.
+        // BUG-FIX: new Date("YYYY-MM-DDTHH:mm:ss") with no suffix is parsed as LOCAL (= UTC on Vercel),
+        // so "12:00" was stored as 12:00 UTC (= 17:30 IST) instead of 12:00 IST (= 06:30 UTC).
+        // Fix: use Intl to find the exact UTC offset (including :30 for IST etc.) and adjust.
         const reviewDeadlineHour = profile.reviewDeadlineHour ?? 3;
         const fmtDate = new Intl.DateTimeFormat('en-CA', {
           year: 'numeric', month: '2-digit', day: '2-digit',
           timeZone: timezone,
         });
-        const postDateStr = fmtDate.format(scheduledFor);
-        const reviewDeadline = new Date(`${postDateStr}T${String(reviewDeadlineHour).padStart(2, '0')}:00:00`);
+        const postDateStr = fmtDate.format(scheduledFor); // "YYYY-MM-DD" in user's TZ
+
+        // Build the correct UTC timestamp for "postDate at reviewDeadlineHour:00 in user's timezone"
+        // 1. Start with a UTC probe at that hour
+        const probeUtc = new Date(`${postDateStr}T${String(reviewDeadlineHour).padStart(2, '0')}:00:00Z`);
+        // 2. Find what local H:M the probe shows in the user's TZ (e.g. 17:30 for 12:00 UTC in IST)
+        const localH = parseInt(
+          new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }).format(probeUtc),
+          10,
+        );
+        const localM = parseInt(
+          new Intl.DateTimeFormat('en-US', { minute: 'numeric', timeZone: timezone }).format(probeUtc),
+          10,
+        );
+        // 3. Shift the probe so local time becomes exactly reviewDeadlineHour:00
+        //    e.g. probe=12:00 UTC shows 17:30 IST → need to go back 5h30m to get 12:00 IST = 06:30 UTC
+        const reviewDeadline = new Date(
+          probeUtc.getTime() + (reviewDeadlineHour - localH) * 60 * 60 * 1000 - localM * 60 * 1000,
+        );
 
         // 8. Update the post with generated content → pending_review
         await doc.ref.update({

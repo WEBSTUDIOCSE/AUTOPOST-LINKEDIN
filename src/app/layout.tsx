@@ -49,24 +49,23 @@ export const metadata: Metadata = {
   authors: [{ name: "LinkedIn AutoPoster" }],
   creator: "LinkedIn AutoPoster",
   applicationName: "LinkedIn AutoPoster",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "LI AutoPoster",
-    startupImage: "/icons/linkedin-512x512.png",
-  },
   formatDetection: {
     telephone: false,
   },
   icons: {
     icon: [
-      { url: "/icons/linkedin-192x192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icons/linkedin-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/linkedin-512x512.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon.png", type: "image/png" },
     ],
-    shortcut: "/icons/linkedin-192x192.png",
+    shortcut: "/icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "LI AutoPoster",
+    startupImage: "/icon.png",
   },
   openGraph: {
     type: "website",
@@ -76,7 +75,7 @@ export const metadata: Metadata = {
     siteName: "LinkedIn AutoPoster",
     images: [
       {
-        url: "/icons/linkedin-512x512.png",
+        url: "/icon.png",
         width: 512,
         height: 512,
         alt: "LinkedIn AutoPoster",
