@@ -10,7 +10,9 @@
  */
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import PwaInstallBanner from './PwaInstallBanner';
 import {
   LayoutDashboard,
   Layers,
@@ -91,8 +93,14 @@ function DesktopSidebar({ pathname }: { pathname: string }) {
       {/* Logo / Brand */}
       <div className="flex h-14 items-center px-4">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <span className="text-sm font-bold text-primary-foreground">LP</span>
+          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+            <Image
+              src="/icons/linkedin-512x512.png"
+              alt="LinkedIn AutoPoster"
+              fill
+              className="object-cover"
+              unoptimized
+            />
           </div>
           <span className="text-base font-semibold tracking-tight">AutoPoster</span>
         </Link>
@@ -134,8 +142,14 @@ function MobileHeader({ pathname }: { pathname: string }) {
   return (
     <header className="md:hidden sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-card px-4">
       <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <span className="text-sm font-bold text-primary-foreground">LP</span>
+        <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg">
+          <Image
+            src="/icons/linkedin-512x512.png"
+            alt="LinkedIn AutoPoster"
+            fill
+            className="object-cover"
+            unoptimized
+          />
         </div>
       </Link>
       <span className="text-sm font-semibold truncate">{currentPage}</span>
@@ -192,6 +206,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </main>
 
         <MobileTabBar pathname={pathname} />
+        <PwaInstallBanner />
       </div>
     </TooltipProvider>
   );
