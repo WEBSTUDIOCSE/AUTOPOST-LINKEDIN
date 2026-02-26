@@ -26,6 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle, DialogTrigger,
@@ -1277,6 +1278,10 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
   const [textModel, setTextModel] = useState(getDefaultModel('gemini', 'text'));
   const [showAdvanced, setShowAdvanced] = useState(false);
 
+  // Page structure control (AI decides vs Custom)
+  const [pageStructureMode, setPageStructureMode] = useState<'ai' | 'custom'>('ai');
+  const [pageInstructions, setPageInstructions] = useState<string[]>([]);
+
   // Number of posts
   const [postCount, setPostCount] = useState(3);
 
@@ -1361,6 +1366,9 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
           pageCount: mediaType === 'html' ? (parseInt(pageCount) || 1) : 1,
           provider: provider || undefined,
           textModel: textModel || undefined,
+          pageInstructions: mediaType === 'html' && parseInt(pageCount) > 1 && pageStructureMode === 'custom' && pageInstructions.some(s => s.trim())
+            ? pageInstructions.map(s => s.trim())
+            : undefined,
           scheduledFor: slot.toISOString(),
           reviewDeadline: reviewDeadline.toISOString(),
         });
@@ -1395,6 +1403,8 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
     setMediaType(profile?.preferredMediaType || 'html');
     setTemplateId('');
     setPageCount('1');
+    setPageStructureMode('ai');
+    setPageInstructions([]);
     const p: TestProvider = profile?.preferredProvider || 'gemini';
     setProvider(p);
     setTextModel(profile?.preferredTextModel || getDefaultModel(p, 'text'));
@@ -1578,7 +1588,17 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
                   {mediaType === 'html' && (
                     <div className="space-y-1.5">
                       <Label>Pages <span className="text-xs text-muted-foreground">(1 = single card, 2+ = carousel)</span></Label>
-                      <Select value={pageCount} onValueChange={setPageCount} disabled={generating}>
+                      <Select value={pageCount} onValueChange={(v) => {
+                        setPageCount(v);
+                        // Reset page instructions when page count changes
+                        const n = parseInt(v);
+                        if (n > 1) {
+                          setPageInstructions(Array.from({ length: n }, (_, i) => pageInstructions[i] || ''));
+                        } else {
+                          setPageStructureMode('ai');
+                          setPageInstructions([]);
+                        }
+                      }} disabled={generating}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {[1, 2, 3, 4, 5, 6].map(n => (
@@ -1588,6 +1608,58 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                  )}
+
+                  {/* Page Structure Toggle (HTML multi-page only) */}
+                  {mediaType === 'html' && parseInt(pageCount) > 1 && (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Page Content Structure</Label>
+                        <div className="flex items-center gap-2">
+                          <span className={cn('text-xs', pageStructureMode === 'ai' ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                            AI decides
+                          </span>
+                          <Switch
+                            checked={pageStructureMode === 'custom'}
+                            onCheckedChange={(checked) => {
+                              const mode = checked ? 'custom' : 'ai';
+                              setPageStructureMode(mode);
+                              if (mode === 'custom' && pageInstructions.length !== parseInt(pageCount)) {
+                                setPageInstructions(Array.from({ length: parseInt(pageCount) }, (_, i) => pageInstructions[i] || ''));
+                              }
+                            }}
+                            disabled={generating}
+                          />
+                          <span className={cn('text-xs', pageStructureMode === 'custom' ? 'text-foreground font-medium' : 'text-muted-foreground')}>
+                            Custom
+                          </span>
+                        </div>
+                      </div>
+
+                      {pageStructureMode === 'custom' && (
+                        <div className="space-y-2 rounded-lg border p-3 bg-muted/30">
+                          <p className="text-[10px] text-muted-foreground">
+                            Describe what each page should contain. Leave blank to let AI decide that page.
+                          </p>
+                          {Array.from({ length: parseInt(pageCount) }).map((_, i) => (
+                            <div key={i} className="space-y-1">
+                              <Label className="text-xs text-muted-foreground">Page {i + 1}</Label>
+                              <Input
+                                placeholder={i === 0 ? 'e.g. Title slide with hook' : i === parseInt(pageCount) - 1 ? 'e.g. Summary & CTA' : `e.g. Key concept ${i}`}
+                                value={pageInstructions[i] || ''}
+                                onChange={(e) => {
+                                  const updated = [...pageInstructions];
+                                  updated[i] = e.target.value;
+                                  setPageInstructions(updated);
+                                }}
+                                disabled={generating}
+                                className="text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -2047,6 +2119,7 @@ function PostCard({ post, onAction }: PostCardProps) {
   const displayContent = post.editedContent ?? post.content;
   const isPending = post.status === 'pending_review';
   const isApproved = post.status === 'approved';
+  const isScheduled = post.status === 'scheduled';
 
   const act = async (action: string) => {
     setBusy(true);
@@ -2116,15 +2189,32 @@ function PostCard({ post, onAction }: PostCardProps) {
               </Badge>
               <MediaIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {formatDate(post.scheduledFor)}
-              {isPending && ` · Review by ${formatDateTime(post.reviewDeadline)}`}
-              {post.status === 'published' && post.publishedAt && ` · Published ${formatDate(post.publishedAt)}`}
-            </p>
+            {isScheduled ? (
+              <div className="mt-1 space-y-0.5">
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Send className="h-3 w-3 shrink-0" />
+                  Publishes {formatDateTime(post.scheduledFor)}
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3 w-3 shrink-0" />
+                  Review by {formatDateTime(post.reviewDeadline)}
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <Sparkles className="h-3 w-3 shrink-0" />
+                  AI draft generates automatically before review
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {formatDate(post.scheduledFor)}
+                {isPending && ` · Review by ${formatDateTime(post.reviewDeadline)}`}
+                {post.status === 'published' && post.publishedAt && ` · Published ${formatDate(post.publishedAt)}`}
+              </p>
+            )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <PostPreviewDialog post={post} onAction={onAction} />
-            {(isPending || isApproved) && (
+            {(isPending || isApproved || isScheduled) && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -2139,9 +2229,21 @@ function PostCard({ post, onAction }: PostCardProps) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 whitespace-pre-line">
-          {displayContent}
-        </p>
+        {isScheduled ? (
+          <div className="text-xs text-muted-foreground space-y-1">
+            {post.mediaType === 'html' && (post.pageCount ?? 1) > 1 && (
+              <p>📄 {post.pageCount}-page carousel{post.pageInstructions?.some(s => s) ? ' (custom layout)' : ''}</p>
+            )}
+            {post.mediaType === 'html' && (post.pageCount ?? 1) === 1 && <p>📄 HTML infographic card</p>}
+            {post.mediaType === 'image' && <p>🖼 With AI-generated image</p>}
+            {post.mediaType === 'text' && <p>📝 Text-only post</p>}
+            <p className="text-[10px] italic">AI content will be generated automatically.</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 whitespace-pre-line">
+            {displayContent}
+          </p>
+        )}
 
         {post.status === 'failed' && post.failureReason && (
           <p className="text-xs text-destructive flex items-start gap-1.5">
@@ -2178,7 +2280,7 @@ function PostCard({ post, onAction }: PostCardProps) {
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />Retry
             </Button>
           )}
-          {(isPending || isApproved) && confirmDelete && (
+          {(isPending || isApproved || isScheduled) && confirmDelete && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-xs text-muted-foreground">Delete this post?</span>
               <Button size="sm" variant="outline" onClick={() => setConfirmDelete(false)} disabled={busy}>Cancel</Button>

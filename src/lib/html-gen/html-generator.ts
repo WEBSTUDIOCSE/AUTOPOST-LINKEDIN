@@ -48,14 +48,26 @@ export interface HtmlGenOptions {
    * The client viewport-slices it for preview and Y-offset captures for images.
    */
   pageCount?: number;
+  /**
+   * Per-page content instructions from the user.
+   * When provided, the AI uses these instead of its default section breakdown.
+   * Array index 0 = page 1, index 1 = page 2, etc.
+   */
+  pageInstructions?: string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PROMPT
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number, pageCount: number): string {
+function buildDefaultPrompt(topic: string, snippet: string, w: number, h: number, pageCount: number, pageInstructions?: string[]): string {
   const sizeRule = `html,body{margin:0;padding:0;width:${w}px;height:${h}px;overflow:hidden;}`;
+
+  // Build per-section content instructions
+  const hasCustomInstructions = pageInstructions && pageInstructions.length > 0 && pageCount > 1;
+  const customSectionGuide = hasCustomInstructions
+    ? pageInstructions.map((instr, i) => `- Section ${i + 1} (${i === 0 ? 'top' : i === pageCount - 1 ? 'bottom' : 'next'} ${w}px): ${instr}`).join('\n')
+    : '';
 
   const contentGuide = pageCount > 1
     ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
@@ -66,9 +78,9 @@ LAYOUT — CRITICAL (each section = one slide):
 - Content area height = section height minus header minus footer minus padding. Budget content to fit WITHIN this.
 
 CONTENT PER SECTION (${pageCount} sections total):
-- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline. Keep text minimal.
+${hasCustomInstructions ? customSectionGuide : `- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline. Keep text minimal.
 ${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept. Keep it to a heading + 2-3 short bullet points OR one small code snippet (max 6 lines). NEVER both a long list AND code in the same section.` : ''}
-- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
+- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.`}
 
 OVERFLOW PREVENTION (MANDATORY):
 - Each section div MUST have: height:${w}px; overflow:hidden; position:relative;
@@ -170,6 +182,7 @@ function buildTemplatePrompt(
   w: number,
   h: number,
   pageCount: number,
+  pageInstructions?: string[],
 ): string {
   const stripped = stripTemplateForReference(templateHtml);
   const templateRef = stripped.length > 2000
@@ -177,6 +190,12 @@ function buildTemplatePrompt(
     : stripped;
 
   const sizeCSS = `html, body { margin: 0; padding: 0; width: ${w}px; height: ${h}px; overflow: hidden; }`;
+
+  // Build per-section content instructions
+  const hasCustomInstructions = pageInstructions && pageInstructions.length > 0 && pageCount > 1;
+  const customSectionGuide = hasCustomInstructions
+    ? pageInstructions.map((instr, i) => `- Section ${i + 1} (${i === 0 ? 'top' : i === pageCount - 1 ? 'bottom' : 'next'} ${w}px): ${instr}`).join('\n')
+    : '';
 
   const contentGuide = pageCount > 1
     ? `Create a SINGLE HTML document for a ${pageCount}-slide LinkedIn carousel. The document is ${w}px wide and ${h}px tall (${pageCount} square sections of ${w}×${w}px each, stacked vertically).
@@ -187,9 +206,9 @@ LAYOUT — CRITICAL (each section = one slide):
 - Content area height = section height minus header minus footer minus padding. Budget content to fit WITHIN this.
 
 CONTENT PER SECTION (${pageCount} sections total):
-- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline.
+${hasCustomInstructions ? customSectionGuide : `- Section 1 (top ${w}px): Title slide — topic name, a compelling tagline.
 ${pageCount > 2 ? `- Sections 2–${pageCount - 1}: Each covers ONE key concept. Keep it to a heading + 2-3 short bullet points OR one small code snippet (max 6 lines). NEVER both a long list AND code in the same section.` : ''}
-- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.
+- Section ${pageCount} (bottom ${w}px): Summary/takeaway with a call-to-action.`}
 
 OVERFLOW PREVENTION (MANDATORY):
 - Each section div MUST have: height:${w}px; overflow:hidden; position:relative;
@@ -240,6 +259,7 @@ function buildHtmlPrompt(
   templateHtml?: string,
   dimensions?: { width: number; height?: number },
   pageCount: number = 1,
+  pageInstructions?: string[],
 ): string {
   // 700 chars — enough context without overloading the prompt (reduces 504 risk)
   const snippet = postContent.slice(0, 700);
@@ -249,9 +269,9 @@ function buildHtmlPrompt(
   const h = pageCount > 1 ? w * pageCount : baseH;
 
   if (templateHtml) {
-    return buildTemplatePrompt(topic, snippet, templateHtml, w, h, pageCount);
+    return buildTemplatePrompt(topic, snippet, templateHtml, w, h, pageCount, pageInstructions);
   }
-  return buildDefaultPrompt(topic, snippet, w, h, pageCount);
+  return buildDefaultPrompt(topic, snippet, w, h, pageCount, pageInstructions);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -349,6 +369,7 @@ export async function generateHtmlCard(
   let templateHtml: string | undefined;
   let dimensions: { width: number; height?: number } | undefined;
   let pageCount: number = 1;
+  let pageInstructions: string[] | undefined;
 
   if (topic !== undefined && postContent !== undefined) {
     adapter = adapterOrOpts as IAIAdapter;
@@ -362,10 +383,11 @@ export async function generateHtmlCard(
     templateHtml = opts.templateHtml;
     dimensions = opts.dimensions;
     pageCount = opts.pageCount ?? 1;
+    pageInstructions = opts.pageInstructions;
   }
 
-  console.log(`[html-gen] Generating ${pageCount > 1 ? `${pageCount}-page carousel` : 'single card'}…`);
+  console.log(`[html-gen] Generating ${pageCount > 1 ? `${pageCount}-page carousel` : 'single card'}${pageInstructions?.length ? ' (custom page layout)' : ''}…`);
 
-  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions, pageCount);
+  const prompt = buildHtmlPrompt(actualTopic, actualContent, templateHtml, dimensions, pageCount, pageInstructions);
   return generateWithRetry(adapter, prompt);
 }

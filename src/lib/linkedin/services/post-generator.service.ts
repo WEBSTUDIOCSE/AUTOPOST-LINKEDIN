@@ -155,6 +155,7 @@ export async function generatePostDraft(context: PostGenerationContext): Promise
         templateHtml: context.templateHtml,
         dimensions: context.templateDimensions,
         pageCount: context.pageCount,
+        pageInstructions: context.pageInstructions,
       });
     } catch (htmlErr) {
       const rawMsg = htmlErr instanceof Error ? htmlErr.message : String(htmlErr);

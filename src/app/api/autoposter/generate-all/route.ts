@@ -6,10 +6,11 @@
  * Called by the Firebase scheduled function `generateDrafts` (every 1 hour).
  *
  * Schedule-first flow:
- *   1. Find all posts with status = 'scheduled' whose scheduledFor is tomorrow
- *      (relative to each user's draftGenerationHour + timezone)
- *   2. For each: generate AI draft content using the saved model/media preferences
- *   3. Update the post: fill in content, set status → pending_review
+ *   1. Find all posts with status = 'scheduled' whose scheduledFor is within
+ *      the next 28 hours (covers same-day + tomorrow posts)
+ *   2. Only process users whose current hour matches their draftGenerationHour
+ *   3. For each: generate AI draft content using the saved model/media preferences
+ *   4. Update the post: fill in content, set status → pending_review
  *
  * Users first "book" posts via the Schedule dialog (just topic + time slot),
  * and the AI draft is created automatically the night before at draftGenerationHour.
@@ -57,19 +58,14 @@ function isDraftHour(timezone: string, draftGenerationHour: number): boolean {
 }
 
 /**
- * Get start/end of "tomorrow" in a timezone, for querying scheduled posts.
+ * Get range of posts to generate drafts for: from NOW to 28 hours ahead.
+ * This covers both same-day posts (scheduled later today) and tomorrow's posts.
+ * E.g. if draftGenerationHour=10 and a post is scheduled for today 1 PM, it will generate.
  */
-function getTomorrowRange(timezone: string): { start: Date; end: Date } {
+function getUpcomingRange(): { start: Date; end: Date } {
   const now = new Date();
-  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    timeZone: timezone,
-  });
-  const dateStr = fmt.format(tomorrow); // "YYYY-MM-DD"
-  const start = new Date(`${dateStr}T00:00:00`);
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  return { start, end };
+  const end = new Date(now.getTime() + 28 * 60 * 60 * 1000); // 28 hours ahead
+  return { start: now, end };
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -119,16 +115,16 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Check if the post's scheduledFor is tomorrow (only generate night before)
+        // Check if the post's scheduledFor is within the next 28 hours
         const scheduledFor = (data.scheduledFor as Timestamp)?.toDate?.();
         if (!scheduledFor) {
           results.push({ postId, userId, status: 'skipped', detail: 'no scheduledFor date' });
           continue;
         }
 
-        const { start, end } = getTomorrowRange(timezone);
+        const { start, end } = getUpcomingRange();
         if (scheduledFor < start || scheduledFor >= end) {
-          // Not for tomorrow — skip, will be picked up on the correct night
+          // Not within the generation window — skip, will be picked up later
           continue;
         }
 
@@ -165,6 +161,7 @@ export async function POST(request: NextRequest) {
         const topic = data.topic as string;
         const notes = (data.notes as string) || undefined;
         const dayName = scheduledFor.toLocaleDateString('en-US', { weekday: 'long' });
+        const pageInstructions = Array.isArray(data.pageInstructions) ? data.pageInstructions as string[] : undefined;
 
         // 6. Generate AI draft
         const draft = await generatePostDraft({
@@ -180,18 +177,19 @@ export async function POST(request: NextRequest) {
           templateHtml,
           templateDimensions,
           pageCount,
+          pageInstructions,
           provider: ((data.provider as string) || profile.preferredProvider) as 'gemini' | 'kieai' | undefined,
           textModel: (data.textModel as string) || profile.preferredTextModel,
         });
 
-        // 7. Calculate review deadline from user's settings
+        // 7. Calculate review deadline from user's settings (on the same day as scheduledFor)
         const reviewDeadlineHour = profile.reviewDeadlineHour ?? 3;
         const fmtDate = new Intl.DateTimeFormat('en-CA', {
           year: 'numeric', month: '2-digit', day: '2-digit',
           timeZone: timezone,
         });
-        const tomorrowDateStr = fmtDate.format(new Date(Date.now() + 24 * 60 * 60 * 1000));
-        const reviewDeadline = new Date(`${tomorrowDateStr}T${String(reviewDeadlineHour).padStart(2, '0')}:00:00`);
+        const postDateStr = fmtDate.format(scheduledFor);
+        const reviewDeadline = new Date(`${postDateStr}T${String(reviewDeadlineHour).padStart(2, '0')}:00:00`);
 
         // 8. Update the post with generated content → pending_review
         await doc.ref.update({

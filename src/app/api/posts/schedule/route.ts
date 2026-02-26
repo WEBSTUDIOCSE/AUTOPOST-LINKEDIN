@@ -75,6 +75,7 @@ export async function POST(request: NextRequest) {
         pageCount,
         provider: typeof p.provider === 'string' ? p.provider : undefined,
         textModel: typeof p.textModel === 'string' ? p.textModel : undefined,
+        pageInstructions: Array.isArray(p.pageInstructions) ? (p.pageInstructions as string[]).filter(s => typeof s === 'string' && s.trim()) : undefined,
       });
 
       if (result.data) ids.push(result.data);

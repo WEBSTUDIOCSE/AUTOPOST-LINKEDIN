@@ -104,6 +104,7 @@ export const PostService = {
     pageCount?: number;
     provider?: string;
     textModel?: string;
+    pageInstructions?: string[];
   }) {
     return firebaseHandler(async () => {
       const db = getAdminDb();
@@ -123,6 +124,7 @@ export const PostService = {
         pageCount: data.pageCount ?? 1,
         provider: data.provider ?? null,
         textModel: data.textModel ?? null,
+        pageInstructions: data.pageInstructions ?? null,
         mediaUrl: null,
         mediaMimeType: null,
         mediaPrompt: null,

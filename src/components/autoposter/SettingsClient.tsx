@@ -33,8 +33,6 @@ import {
   Unplug,
   Loader2,
   Bot,
-  Zap,
-  Play,
   AlertCircle,
   User,
 } from 'lucide-react';
@@ -179,10 +177,7 @@ export default function SettingsClient() {
   const [preferredMediaType, setPreferredMediaType] = useState('text');
   const [persona, setPersona] = useState('');
 
-  // Test trigger state
-  const [triggerTime, setTriggerTime] = useState('');
-  const [triggering, setTriggering] = useState(false);
-  const [triggerResult, setTriggerResult] = useState<{ success: boolean; message: string } | null>(null);
+
 
   const fetchProfile = useCallback(async () => {
     if (!user) return;
@@ -217,13 +212,7 @@ export default function SettingsClient() {
     fetchProfile();
   }, [fetchProfile]);
 
-  // Set default trigger time to now + 5 min
-  useEffect(() => {
-    const d = new Date(Date.now() + 5 * 60 * 1000);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    setTriggerTime(`${hh}:${mm}`);
-  }, []);
+
 
   // Generic save handler
   const saveField = async (section: string, updates: Record<string, unknown>) => {
@@ -300,48 +289,7 @@ export default function SettingsClient() {
     }
   };
 
-  // ── Test Trigger ─────────────────────────────────────────────────────────
 
-  const handleTrigger = async () => {
-    setTriggering(true);
-    setTriggerResult(null);
-    try {
-      // Build scheduledFor from the time picker
-      const [h, m] = triggerTime.split(':').map(Number);
-      const scheduledFor = new Date();
-      scheduledFor.setHours(h, m, 0, 0);
-      // If the time is in the past, push to tomorrow
-      if (scheduledFor <= new Date()) {
-        scheduledFor.setDate(scheduledFor.getDate() + 1);
-      }
-
-      const res = await fetch('/api/autoposter/trigger', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduledFor: scheduledFor.toISOString() }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        setTriggerResult({
-          success: true,
-          message: `Draft created for "${data.data.topic}" (${data.data.mediaType}). Scheduled for ${new Date(data.data.scheduledFor).toLocaleString()}.${data.data.mediaWarning ? ` Warning: ${data.data.mediaWarning}` : ''}`,
-        });
-      } else {
-        setTriggerResult({
-          success: false,
-          message: data.error + (data.details ? ` — ${data.details}` : ''),
-        });
-      }
-    } catch (err) {
-      setTriggerResult({
-        success: false,
-        message: err instanceof Error ? err.message : 'Trigger failed',
-      });
-    } finally {
-      setTriggering(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -374,60 +322,6 @@ export default function SettingsClient() {
           Configure your autoposter preferences.
         </p>
       </div>
-
-      {/* ── Test Trigger ────────────────────────────────────────────────────── */}
-      <SettingsSection
-        icon={Zap}
-        title="Test Draft Generation"
-        description="Manually trigger a draft to test the autoposter pipeline."
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label className="text-xs">Schedule Post At</Label>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <Input
-                type="time"
-                value={triggerTime}
-                onChange={(e) => setTriggerTime(e.target.value)}
-                className="w-full sm:w-40 text-sm touch-manipulation"
-              />
-              <Button
-                onClick={handleTrigger}
-                disabled={triggering || !triggerTime}
-                className="w-full sm:w-auto touch-manipulation"
-              >
-                {triggering ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Play className="mr-1.5 h-4 w-4" />
-                )}
-                {triggering ? 'Generating...' : 'Generate Draft Now'}
-              </Button>
-            </div>
-            <p className="text-[10px] text-muted-foreground">
-              Picks the next topic from your active series or idea bank and generates a draft.
-              The draft will appear in Posts for review.
-            </p>
-          </div>
-
-          {triggerResult && (
-            <div className={`rounded-lg border px-4 py-3 text-sm ${
-              triggerResult.success
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400'
-                : 'bg-destructive/10 border-destructive/30 text-destructive'
-            }`}>
-              <div className="flex items-start gap-2">
-                {triggerResult.success ? (
-                  <Check className="h-4 w-4 mt-0.5 shrink-0" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                )}
-                <span className="break-words min-w-0">{triggerResult.message}</span>
-              </div>
-            </div>
-          )}
-        </div>
-      </SettingsSection>
 
       {/* ── LinkedIn Connection ───────────────────────────────────────────── */}
       <SettingsSection

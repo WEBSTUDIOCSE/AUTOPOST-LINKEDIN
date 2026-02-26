@@ -165,6 +165,8 @@ export interface Post {
   templateId?: string;
   provider?: string;
   textModel?: string;
+  /** Per-page content instructions (user decides what goes on each page) */
+  pageInstructions?: string[];
 
   // ── Scheduling ─────────────────────────────────────────────────────────
   /** When the post should be published on LinkedIn */
@@ -329,6 +331,8 @@ export interface PostGenerationContext {
   templateDimensions?: { width: number; height?: number };
   /** Number of carousel pages to generate (1 = single card, 2-9 = multi-page) */
   pageCount?: number;
+  /** Per-page content instructions — if provided, AI uses these instead of deciding structure */
+  pageInstructions?: string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
