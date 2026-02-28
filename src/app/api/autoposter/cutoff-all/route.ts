@@ -66,13 +66,20 @@ export async function POST(request: NextRequest) {
       });
 
       // Notify user that the review deadline passed
-      sendPushNotification(data.userId as string, {
-        type: 'post_skipped',
-        title: '⏰ Review Deadline Passed',
-        body: `"${data.topic as string}" was skipped because the review deadline passed. It will be regenerated.`,
-        postId: doc.id,
-        clickAction: '/posts',
-      }).catch(() => {});
+      try {
+        const sent = await sendPushNotification(data.userId as string, {
+          type: 'post_skipped',
+          title: '⏰ Review Deadline Passed',
+          body: `"${data.topic as string}" was skipped because the review deadline passed. It will be regenerated.`,
+          postId: doc.id,
+          clickAction: '/posts',
+        });
+        if (!sent) {
+          console.warn(`[cutoff-all] Push notification NOT sent for post ${doc.id} (user ${data.userId}) — FCM token may be missing or invalid`);
+        }
+      } catch (pushErr) {
+        console.error(`[cutoff-all] Push notification error for post ${doc.id}:`, pushErr);
+      }
     }
 
     console.log(`[cutoff-all] Skipped ${results.length} posts`);

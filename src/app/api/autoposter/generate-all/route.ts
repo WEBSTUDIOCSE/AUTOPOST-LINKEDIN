@@ -209,13 +209,20 @@ export async function POST(request: NextRequest) {
         results.push({ postId, userId, status: 'generated', detail: topic });
 
         // Notify user that a new draft is ready for review
-        sendPushNotification(userId, {
-          type: 'draft_ready',
-          title: '📝 Draft Ready for Review',
-          body: `Your post "${topic}" has been generated. Review and approve it before the deadline.`,
-          postId,
-          clickAction: '/posts',
-        }).catch(() => {});
+        try {
+          const sent = await sendPushNotification(userId, {
+            type: 'draft_ready',
+            title: '📝 Draft Ready for Review',
+            body: `Your post "${topic}" has been generated. Review and approve it before the deadline.`,
+            postId,
+            clickAction: '/posts',
+          });
+          if (!sent) {
+            console.warn(`[generate-all] Push notification NOT sent for post ${postId} (user ${userId}) — FCM token may be missing or invalid`);
+          }
+        } catch (pushErr) {
+          console.error(`[generate-all] Push notification error for post ${postId}:`, pushErr);
+        }
       } catch (postErr) {
         const msg = postErr instanceof Error ? postErr.message : String(postErr);
         console.error(`[generate-all] Failed for post ${postId} (user ${userId}):`, postErr);

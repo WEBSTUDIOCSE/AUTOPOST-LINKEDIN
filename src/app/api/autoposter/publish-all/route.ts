@@ -187,13 +187,20 @@ export async function POST(request: NextRequest) {
         results.push({ postId, userId, topic, status: 'published', detail: linkedinPostId });
 
         // Notify user that their post was published
-        sendPushNotification(userId, {
-          type: 'post_published',
-          title: '🚀 Post Published!',
-          body: `Your post "${topic}" is now live on LinkedIn.`,
-          postId,
-          clickAction: '/posts',
-        }).catch(() => {});
+        try {
+          const sent = await sendPushNotification(userId, {
+            type: 'post_published',
+            title: '🚀 Post Published!',
+            body: `Your post "${topic}" is now live on LinkedIn.`,
+            postId,
+            clickAction: '/posts',
+          });
+          if (!sent) {
+            console.warn(`[publish-all] Push notification NOT sent for post ${postId} (user ${userId}) — FCM token may be missing or invalid`);
+          }
+        } catch (pushErr) {
+          console.error(`[publish-all] Push notification error for post ${postId}:`, pushErr);
+        }
       } catch (postErr) {
         const msg = postErr instanceof Error ? postErr.message : String(postErr);
         console.error(`[publish-all] Failed to publish post ${postId}:`, postErr);
@@ -201,13 +208,20 @@ export async function POST(request: NextRequest) {
         results.push({ postId, userId, topic, status: 'failed', detail: msg });
 
         // Notify user that publish failed
-        sendPushNotification(userId, {
-          type: 'post_failed',
-          title: '❌ Post Failed',
-          body: `Failed to publish "${topic}": ${msg.slice(0, 100)}`,
-          postId,
-          clickAction: '/posts',
-        }).catch(() => {});
+        try {
+          const sent = await sendPushNotification(userId, {
+            type: 'post_failed',
+            title: '❌ Post Failed',
+            body: `Failed to publish "${topic}": ${msg.slice(0, 100)}`,
+            postId,
+            clickAction: '/posts',
+          });
+          if (!sent) {
+            console.warn(`[publish-all] Failure notification NOT sent for post ${postId} (user ${userId}) — FCM token may be missing or invalid`);
+          }
+        } catch (pushErr) {
+          console.error(`[publish-all] Failure notification error for post ${postId}:`, pushErr);
+        }
       }
     }
 

@@ -36,8 +36,14 @@ export async function sendPushNotification(
     const profileResult = await ProfileService.get(userId);
     const fcmToken = profileResult.data?.fcmToken;
 
-    if (!fcmToken || fcmToken === 'enabled') {
-      // No real token stored — skip silently
+    if (!fcmToken) {
+      console.warn(`[Push] No FCM token for user ${userId} — notifications not enabled. User must enable notifications in Settings.`);
+      return false;
+    }
+
+    if (fcmToken === 'enabled') {
+      // Placeholder value — real token was never stored (permission granted but token retrieval failed)
+      console.warn(`[Push] FCM token for user ${userId} is placeholder "enabled" — not a real device token. User should re-enable notifications in Settings.`);
       return false;
     }
 

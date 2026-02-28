@@ -162,26 +162,117 @@ function resolveCssVariables(html: string): string {
 // ── HTML Dimension / Background Parser ────────────────────────────────────────
 
 /**
- * Extract the CSS background-color from the HTML's `html` or `body` rules.
+ * Extract the CSS background-color from the HTML's CSS rules.
+ * Searches html, body, AND common wrapper selectors (.container, .wrapper, etc.).
  * Falls back to a dark default so html2canvas never renders a transparent canvas.
  * Should be called AFTER resolveCssVariables() so values are literal.
  */
 function extractCssBackgroundColor(html: string): string {
   const isSafeColor = (v: string) => !v.includes('var(') && !v.includes('gradient');
 
-  // Try background-color first (exact solid color only)
-  const bgcMatch = html.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
-  if (bgcMatch) {
-    const val = bgcMatch[1].trim();
-    if (isSafeColor(val)) return val;
-  }
-  // Try background shorthand — grab just the colour token
-  const bgMatch = html.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
-  if (bgMatch) {
-    const val = bgMatch[1].trim();
-    if (isSafeColor(val)) return val;
+  // Selectors to search, in priority order
+  const selectors = [
+    /(?:html|body)\s*[,\s]?\s*(?:html|body)?\s*\{([^}]*)\}/gi,  // html, body { ... } or html { ... } or body { ... }
+    /\.(?:container|wrapper|slide|page|card|main)\s*\{([^}]*)\}/gi, // common wrapper classes
+  ];
+
+  for (const selectorRe of selectors) {
+    let blockMatch: RegExpExecArray | null;
+    while ((blockMatch = selectorRe.exec(html)) !== null) {
+      const block = blockMatch[1];
+
+      // Try background-color first
+      const bgcMatch = block.match(/background-color\s*:\s*([^;}]+)/i);
+      if (bgcMatch) {
+        const val = bgcMatch[1].trim();
+        if (isSafeColor(val)) return val;
+      }
+
+      // Try background shorthand — grab the colour token
+      const bgMatch = block.match(/background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
+      if (bgMatch) {
+        const val = bgMatch[1].trim();
+        if (isSafeColor(val)) return val;
+      }
+    }
   }
   return '#0f172a'; // safe dark fallback
+}
+
+/**
+ * Get the actual rendered background color from an iframe document using getComputedStyle.
+ * Much more accurate than regex parsing because it sees the computed cascade.
+ * Falls back to CSS text parsing if getComputedStyle isn't available.
+ */
+function getRenderedBackgroundColor(doc: Document, htmlSource: string): string {
+  const isTransparent = (v: string | undefined) =>
+    !v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'initial';
+
+  try {
+    const win = doc.defaultView;
+    if (win) {
+      // Check body first, then html, then first wrapper div
+      const candidates = [
+        doc.body,
+        doc.documentElement,
+        doc.querySelector('.container, .wrapper, .slide, .page, body > div') as HTMLElement,
+      ].filter(Boolean) as HTMLElement[];
+
+      for (const el of candidates) {
+        const style = win.getComputedStyle(el);
+        const bgColor = style.backgroundColor;
+        if (!isTransparent(bgColor)) return bgColor;
+      }
+    }
+  } catch {
+    // getComputedStyle might fail in sandboxed iframes — fall back
+  }
+
+  return extractCssBackgroundColor(htmlSource);
+}
+
+/**
+ * Copy ALL background styles from the document body/html to a slide element.
+ * This is critical for per-slide capture: html2canvas only renders the target
+ * element and its children, so the body's gradient/pattern background is lost
+ * unless we copy it onto the slide element.
+ */
+function copyBackgroundToSlide(doc: Document, slideEl: HTMLElement): void {
+  const isTransparent = (v: string | undefined) =>
+    !v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'none' || v === 'initial';
+
+  try {
+    const win = doc.defaultView;
+    if (!win) return;
+
+    // Check if the slide already has its own background
+    const slideStyle = win.getComputedStyle(slideEl);
+    if (!isTransparent(slideStyle.backgroundColor) || !isTransparent(slideStyle.backgroundImage)) {
+      return; // Slide has its own background — don't override
+    }
+
+    // Find which parent element has the background
+    const bodyStyle = win.getComputedStyle(doc.body);
+    const htmlStyle = win.getComputedStyle(doc.documentElement);
+
+    const hasBodyBg = !isTransparent(bodyStyle.backgroundColor) || !isTransparent(bodyStyle.backgroundImage);
+    const sourceStyle = hasBodyBg ? bodyStyle : htmlStyle;
+
+    // Copy all background properties to the slide element
+    const bgProps = [
+      'background-color', 'background-image', 'background-size',
+      'background-position', 'background-repeat', 'background-attachment',
+    ];
+
+    for (const prop of bgProps) {
+      const val = sourceStyle.getPropertyValue(prop);
+      if (val && !isTransparent(val)) {
+        slideEl.style.setProperty(prop, val);
+      }
+    }
+  } catch {
+    // Silently fail — capture will still work, just without the copied background
+  }
 }
 
 /**
@@ -474,7 +565,8 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
         await new Promise(r => setTimeout(r, 200));
 
         const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
-        const bgColor = extractCssBackgroundColor(resolved);
+        // Use DOM-computed background for accuracy (not just CSS text parsing)
+        const bgColor = getRenderedBackgroundColor(doc, resolved);
 
         const canvas = await html2canvas(doc.documentElement, {
           width: designW,
@@ -539,7 +631,8 @@ async function captureHtmlPages(html: string, pageCount: number): Promise<string
         ]);
         await new Promise(r => setTimeout(r, 200));
 
-        const bgColor = extractCssBackgroundColor(resolved);
+        // Use DOM-computed background for accuracy
+        const bgColor = getRenderedBackgroundColor(doc, resolved);
         const results: string[] = [];
 
         // Try to find individual slide elements to capture them independently.
@@ -550,9 +643,13 @@ async function captureHtmlPages(html: string, pageCount: number): Promise<string
           : null;
 
         if (slideElements) {
-          // Capture each slide element individually
+          // Capture each slide element individually.
+          // IMPORTANT: copy body/html background to each slide element,
+          // because html2canvas only renders the target element and its
+          // children — the parent's gradient/pattern background is lost.
           for (const slideEl of slideElements) {
             const el = slideEl as HTMLElement;
+            copyBackgroundToSlide(doc, el);
             const canvas = await html2canvas(el, {
               width: designW,
               height: pageH,

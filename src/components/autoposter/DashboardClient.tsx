@@ -408,14 +408,62 @@ export default function DashboardClient() {
             const wMatch = resolved.match(/(?:html|body)\s*[^}]*?width\s*:\s*(\d+)px/);
             const designW = wMatch ? parseInt(wMatch[1], 10) : 1080;
 
-            // Extract background color from resolved HTML (no var() issues)
-            const bgColor = (() => {
-              const m1 = resolved.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
-              if (m1 && !m1[1].includes('var(') && !m1[1].includes('gradient')) return m1[1].trim();
-              const m2 = resolved.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
-              if (m2 && !m2[1].includes('var(') && !m2[1].includes('gradient')) return m2[1].trim();
+            // DOM-based background extraction helper (used inside iframe onload)
+            const getDomBgColor = (doc: Document): string => {
+              const isTransparent = (v: string | undefined) =>
+                !v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'initial';
+              try {
+                const win = doc.defaultView;
+                if (win) {
+                  const candidates = [
+                    doc.body,
+                    doc.documentElement,
+                    doc.querySelector('.container, .wrapper, .slide, .page, body > div') as HTMLElement,
+                  ].filter(Boolean) as HTMLElement[];
+                  for (const el of candidates) {
+                    const style = win.getComputedStyle(el);
+                    if (!isTransparent(style.backgroundColor)) return style.backgroundColor;
+                  }
+                }
+              } catch { /* fall through */ }
+              // Fallback: regex parsing across html/body and common wrappers
+              const isSafe = (v: string) => !v.includes('var(') && !v.includes('gradient');
+              const selectors = [
+                /(?:html|body)\s*[,\s]?\s*(?:html|body)?\s*\{([^}]*)\}/gi,
+                /\.(?:container|wrapper|slide|page|card|main)\s*\{([^}]*)\}/gi,
+              ];
+              for (const re of selectors) {
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(resolved)) !== null) {
+                  const bgcM = m[1].match(/background-color\s*:\s*([^;}]+)/i);
+                  if (bgcM && isSafe(bgcM[1].trim())) return bgcM[1].trim();
+                  const bgM = m[1].match(/background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
+                  if (bgM && isSafe(bgM[1].trim())) return bgM[1].trim();
+                }
+              }
               return '#0f172a';
-            })();
+            };
+
+            // Helper: copy background from body/html to a slide element so
+            // html2canvas renders the correct background on per-slide capture
+            const copyBgToSlide = (doc: Document, slideEl: HTMLElement): void => {
+              const isTransparent = (v: string | undefined) =>
+                !v || v === 'transparent' || v === 'rgba(0, 0, 0, 0)' || v === 'none' || v === 'initial';
+              try {
+                const win = doc.defaultView;
+                if (!win) return;
+                const slideStyle = win.getComputedStyle(slideEl);
+                if (!isTransparent(slideStyle.backgroundColor) || !isTransparent(slideStyle.backgroundImage)) return;
+                const bodyStyle = win.getComputedStyle(doc.body);
+                const htmlStyle = win.getComputedStyle(doc.documentElement);
+                const hasBodyBg = !isTransparent(bodyStyle.backgroundColor) || !isTransparent(bodyStyle.backgroundImage);
+                const srcStyle = hasBodyBg ? bodyStyle : htmlStyle;
+                for (const prop of ['background-color','background-image','background-size','background-position','background-repeat']) {
+                  const val = srcStyle.getPropertyValue(prop);
+                  if (val && !isTransparent(val)) slideEl.style.setProperty(prop, val);
+                }
+              } catch { /* ignore */ }
+            };
 
             if (pc > 1) {
               const pageH = designW;
@@ -435,12 +483,16 @@ export default function DashboardClient() {
                     await Promise.race([doc.fonts?.ready ?? Promise.resolve(), new Promise(r => setTimeout(r, 3000))]);
                     await new Promise(r => setTimeout(r, 200));
 
+                    const bgColor = getDomBgColor(doc);
+
                     // Try to capture individual slide elements instead of Y-offset slicing
                     const slides = doc.querySelectorAll('.slide, [class*="slide"], body > div, body > section');
                     const slideEls = slides.length >= pc ? Array.from(slides).slice(0, pc) : null;
 
                     if (slideEls) {
                       for (const el of slideEls) {
+                        // Copy body background to each slide so it's not lost
+                        copyBgToSlide(doc, el as HTMLElement);
                         const canvas = await html2canvas(el as HTMLElement, {
                           width: designW, height: pageH, scale: 2, useCORS: true,
                           backgroundColor: bgColor, windowWidth: designW, windowHeight: pageH,
@@ -482,6 +534,7 @@ export default function DashboardClient() {
                     await Promise.race([doc.fonts?.ready ?? Promise.resolve(), new Promise(r => setTimeout(r, 3000))]);
                     await new Promise(r => setTimeout(r, 200));
                     const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
+                    const bgColor = getDomBgColor(doc);
                     const canvas = await html2canvas(doc.documentElement, {
                       width: designW, height: finalH, scale: 2, useCORS: true,
                       backgroundColor: bgColor, windowWidth: designW, windowHeight: finalH,
