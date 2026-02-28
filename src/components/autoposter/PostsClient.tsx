@@ -1371,7 +1371,7 @@ function ScheduleDialog({ seriesList, templates, onDone }: ScheduleDialogProps) 
   const [pageInstructions, setPageInstructions] = useState<string[]>([]);
 
   // Number of posts
-  const [postCount, setPostCount] = useState(3);
+  const [postCount, setPostCount] = useState(1);
 
   // Scheduling state
   const [generating, setGenerating] = useState(false);

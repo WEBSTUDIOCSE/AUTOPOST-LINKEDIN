@@ -44,29 +44,16 @@ function isAuthorised(request: NextRequest): boolean {
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Check if now is the right hour to generate drafts for a user.
- * Returns true if the current hour in the user's timezone matches their draftGenerationHour.
- */
-function isDraftHour(timezone: string, draftGenerationHour: number): boolean {
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric',
-    hour12: false,
-    timeZone: timezone,
-  });
-  const currentHour = parseInt(formatter.format(now), 10);
-  return currentHour === draftGenerationHour;
-}
-
-/**
  * Get range of posts to generate drafts for: from NOW to 28 hours ahead.
  * This covers both same-day posts (scheduled later today) and tomorrow's posts.
- * E.g. if draftGenerationHour=10 and a post is scheduled for today 1 PM, it will generate.
+ * Any scheduled post whose scheduledFor falls within this window will get a
+ * draft generated — no draft-hour gating, since the cron runs every hour and
+ * waiting for a specific hour caused posts to be missed entirely.
  */
 function getUpcomingRange(): { start: Date; end: Date } {
-  const now = new Date();
-  const end = new Date(now.getTime() + 28 * 60 * 60 * 1000); // 28 hours ahead
-  return { start: now, end };
+  const start = new Date();
+  const end = new Date(start.getTime() + 28 * 60 * 60 * 1000); // 28 hours ahead
+  return { start, end };
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -108,13 +95,6 @@ export async function POST(request: NextRequest) {
         }
 
         const timezone = profile.timezone || 'Asia/Kolkata';
-        const draftHour = profile.draftGenerationHour ?? 21;
-
-        // Check if now is the right time to generate for this user
-        if (!isDraftHour(timezone, draftHour)) {
-          // Not this user's draft hour — skip for now, will be picked up next run
-          continue;
-        }
 
         // Check if the post's scheduledFor is within the next 28 hours
         const scheduledFor = (data.scheduledFor as Timestamp)?.toDate?.();
