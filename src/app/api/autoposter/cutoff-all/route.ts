@@ -7,8 +7,8 @@
  * 3 AM IST Tue–Thu in production).
  *
  * Finds all pending_review posts whose reviewDeadline has passed and sets
- * them to "skipped". Also advances the series index so the next auto-post
- * picks the next topic.
+ * them to "skipped". Series index is NOT advanced here — only publish advances
+ * the series, so skipped/rejected topics can be retried.
  *
  * Auth: shared CRON_SECRET secret in `x-cron-secret` header.
  */
@@ -18,7 +18,6 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { POSTS_COLLECTION } from '@/lib/linkedin/collections';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Timestamp } from 'firebase-admin/firestore';
-import { SeriesService } from '@/lib/linkedin/services/series.service';
 
 export const maxDuration = 60;
 
@@ -56,22 +55,8 @@ export async function POST(request: NextRequest) {
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      // Advance series index so next run picks the next topic
-      const seriesId = data.seriesId as string | null;
-      if (seriesId) {
-        try {
-          const seriesResult = await SeriesService.getById(seriesId);
-          if (seriesResult.data) {
-            await SeriesService.advanceIndex(
-              seriesId,
-              seriesResult.data.topicQueue.length,
-              seriesResult.data.currentIndex,
-            );
-          }
-        } catch (seriesErr) {
-          console.error(`[cutoff-all] Failed to advance series ${seriesId}:`, seriesErr);
-        }
-      }
+      // Series index is NOT advanced on skip/cutoff.
+      // Only publish advances the series so rejected/skipped topics can be retried.
 
       results.push({
         postId: doc.id,

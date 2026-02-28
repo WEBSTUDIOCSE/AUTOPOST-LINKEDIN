@@ -390,9 +390,29 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ success: true, message: 'Post approved' });
       }
 
-      case 'reject':
+      case 'reject': {
+        // Reset the post back to 'scheduled' so generate-all will re-generate
+        // with the same topic at the next draft hour. Series index is NOT advanced.
         await PostService.reject(postId);
-        return NextResponse.json({ success: true, message: 'Post rejected' });
+
+        // Clear old content so generate-all treats it as a fresh scheduled post
+        const { getAdminDb: getDb } = await import('@/lib/firebase/admin');
+        const { POSTS_COLLECTION: PC } = await import('@/lib/linkedin/collections');
+        const { FieldValue: FV } = await import('firebase-admin/firestore');
+        await getDb().collection(PC).doc(postId).update({
+          status: 'scheduled',
+          content: '',
+          editedContent: null,
+          htmlContent: null,
+          mediaUrl: null,
+          mediaMimeType: null,
+          imageUrls: null,
+          linkedinMediaAsset: null,
+          updatedAt: FV.serverTimestamp(),
+        });
+
+        return NextResponse.json({ success: true, message: 'Post rejected — will be regenerated at next draft hour' });
+      }
 
       case 'edit':
         if (!editedContent) {

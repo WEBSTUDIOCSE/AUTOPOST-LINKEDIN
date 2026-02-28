@@ -2150,8 +2150,11 @@ function PostCard({ post, onAction }: PostCardProps) {
         body: JSON.stringify({ postId: post.id, action, imageBase64, imageBase64Array }),
       });
       const data = await res.json();
-      if (!data.success && data.error) setError(data.error);
-      await onAction(post.id, action);
+      if (!data.success && data.error) {
+        setError(data.error);
+      } else {
+        await onAction(post.id, action);
+      }
     } catch {
       setError('Action failed');
     }
@@ -2213,6 +2216,11 @@ function PostCard({ post, onAction }: PostCardProps) {
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            {post.status === 'failed' && post.failureReason && (
+              <span className="text-[10px] text-destructive max-w-[200px] truncate" title={post.failureReason}>
+                <AlertCircle className="inline h-3 w-3 mr-0.5" />{post.failureReason}
+              </span>
+            )}
             <PostPreviewDialog post={post} onAction={onAction} />
             {(isPending || isApproved || isScheduled) && (
               <Button

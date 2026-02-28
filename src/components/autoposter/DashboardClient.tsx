@@ -357,13 +357,100 @@ export default function DashboardClient() {
   const unusedIdeas = ideas.filter((i) => !i.used);
   const nextPost = upcoming[0] ?? null;
 
-  // Post action handler
+  // Post action handler — includes HTML→PNG capture for approve/publish on HTML posts
   const handleAction = async (postId: string, action: string, content?: string) => {
     try {
+      let imageBase64: string | undefined;
+      let imageBase64Array: string[] | undefined;
+
+      // For approve/publish on HTML posts, capture HTML→PNG client-side
+      if (action === 'approve' || action === 'publish') {
+        const post = posts.find(p => p.id === postId);
+        if (post?.mediaType === 'html' && post.htmlContent) {
+          try {
+            const html2canvas = (await import('html2canvas')).default;
+            const pc = post.pageCount ?? 1;
+
+            // Parse dimensions from HTML
+            const wMatch = post.htmlContent.match(/data-design-width=["'](\d+)["']/);
+            const designW = wMatch ? parseInt(wMatch[1], 10) : 1080;
+
+            // Extract background color
+            const bgMatch = post.htmlContent.match(/background(?:-color)?\s*:\s*([^;}"']+)/i);
+            const bgColor = bgMatch ? bgMatch[1].trim() : '#ffffff';
+
+            const captureOnePage = (html: string, width: number, height: number, yOffset = 0, totalHeight?: number): Promise<string> => {
+              return new Promise((resolve, reject) => {
+                const iframe = document.createElement('iframe');
+                const frameH = totalHeight ?? height;
+                iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:${frameH}px;border:none;`;
+                iframe.sandbox.add('allow-same-origin');
+                iframe.srcdoc = html;
+                iframe.onload = async () => {
+                  try {
+                    await new Promise(r => setTimeout(r, 500));
+                    const doc = iframe.contentDocument;
+                    if (!doc?.documentElement) throw new Error('Cannot access iframe content');
+                    const canvas = await html2canvas(doc.documentElement, {
+                      width, height, y: yOffset, scale: 2, useCORS: true,
+                      backgroundColor: bgColor, windowWidth: width, windowHeight: frameH,
+                    });
+                    resolve(canvas.toDataURL('image/png').split(',')[1]);
+                  } catch (err) { reject(err); }
+                  finally { document.body.removeChild(iframe); }
+                };
+                iframe.onerror = () => { document.body.removeChild(iframe); reject(new Error('iframe load failed')); };
+                document.body.appendChild(iframe);
+              });
+            };
+
+            if (pc > 1) {
+              const pageH = designW;
+              const totalH = pageH * pc;
+              const results: string[] = [];
+              // Capture all pages from a single iframe load
+              await new Promise<void>((resolve, reject) => {
+                const iframe = document.createElement('iframe');
+                iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${totalH}px;border:none;`;
+                iframe.sandbox.add('allow-same-origin');
+                iframe.srcdoc = post.htmlContent!;
+                iframe.onload = async () => {
+                  try {
+                    await new Promise(r => setTimeout(r, 500));
+                    const doc = iframe.contentDocument;
+                    if (!doc?.documentElement) throw new Error('Cannot access iframe content');
+                    for (let i = 0; i < pc; i++) {
+                      const canvas = await html2canvas(doc.documentElement, {
+                        width: designW, height: pageH, y: i * pageH, scale: 2, useCORS: true,
+                        backgroundColor: bgColor, windowWidth: designW, windowHeight: totalH,
+                      });
+                      results.push(canvas.toDataURL('image/png').split(',')[1]);
+                    }
+                    resolve();
+                  } catch (err) { reject(err); }
+                  finally { document.body.removeChild(iframe); }
+                };
+                iframe.onerror = () => { document.body.removeChild(iframe); reject(new Error('iframe failed')); };
+                document.body.appendChild(iframe);
+              });
+              imageBase64Array = results;
+            } else {
+              const hMatch = post.htmlContent.match(/data-design-height=["'](\d+)["']/);
+              const designH = hMatch ? parseInt(hMatch[1], 10) : undefined;
+              const capH = designH ?? 2000;
+              imageBase64 = await captureOnePage(post.htmlContent, designW, designH ?? capH);
+            }
+          } catch (captureErr) {
+            alert(`Failed to capture HTML card: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);
+            return;
+          }
+        }
+      }
+
       const res = await fetch('/api/posts', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, action, editedContent: content }),
+        body: JSON.stringify({ postId, action, editedContent: content, imageBase64, imageBase64Array }),
       });
       const data = await res.json();
       if (!data.success && data.error) {

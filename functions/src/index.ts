@@ -4,8 +4,8 @@
  * Three scheduled functions that call the Next.js admin API endpoints:
  *
  *   generateDrafts  — Every 1 hour → /api/autoposter/generate-all
- *   cutoffReview    — Every 1 hour → /api/autoposter/cutoff-all
- *   publishPosts    — Every 1 hour → /api/autoposter/publish-all
+ *   cutoffReview    — Every 5 min  → /api/autoposter/cutoff-all
+ *   publishPosts    — Every 5 min  → /api/autoposter/publish-all
  *
  * Each endpoint checks the user's timezone + configured hours (draftGenerationHour,
  * reviewDeadlineHour, posting schedule) to determine if this is the right time to act.
@@ -92,7 +92,7 @@ export const generateDrafts = onSchedule(
 
 export const cutoffReview = onSchedule(
   {
-    schedule: 'every 1 hours',
+    schedule: 'every 5 minutes',
     timeZone: 'Asia/Kolkata',
     region: 'us-central1',
     timeoutSeconds: 60,
@@ -110,7 +110,7 @@ export const cutoffReview = onSchedule(
 
 export const publishPosts = onSchedule(
   {
-    schedule: 'every 1 hours',
+    schedule: 'every 5 minutes',
     timeZone: 'Asia/Kolkata',
     region: 'us-central1',
     timeoutSeconds: 300,  // LinkedIn uploads can be slow
