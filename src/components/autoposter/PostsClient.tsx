@@ -113,12 +113,58 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
   html: Code2,
 };
 
+// ── CSS Variable Resolver ─────────────────────────────────────────────────────
+
+/**
+ * Resolve all CSS custom properties (var(--...)) in HTML by inlining their values.
+ * html2canvas v1.4.x does NOT support CSS custom properties, so we must replace
+ * every `var(--name)` with the literal value from :root before capture.
+ *
+ * Also strips `@import url(...)` for Google Fonts (html2canvas can't load them)
+ * and replaces with safe system font fallbacks.
+ */
+function resolveCssVariables(html: string): string {
+  // 1. Extract all CSS custom properties from :root / html / body blocks
+  const vars = new Map<string, string>();
+  const rootBlockRe = /(?::root|html|body)\s*\{([^}]+)\}/gi;
+  let blockMatch: RegExpExecArray | null;
+  while ((blockMatch = rootBlockRe.exec(html)) !== null) {
+    const block = blockMatch[1];
+    const propRe = /(--[\w-]+)\s*:\s*([^;]+)/g;
+    let propMatch: RegExpExecArray | null;
+    while ((propMatch = propRe.exec(block)) !== null) {
+      vars.set(propMatch[1].trim(), propMatch[2].trim());
+    }
+  }
+
+  if (vars.size === 0) return html;
+
+  // 2. Iteratively resolve var() references (handles nested vars + fallbacks)
+  let resolved = html;
+  // Multiple passes to handle var(--a) where --a itself contained var(--b)
+  for (let pass = 0; pass < 5; pass++) {
+    const before = resolved;
+    resolved = resolved.replace(
+      /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)/g,
+      (_match, varName: string, fallback?: string) => {
+        const value = vars.get(varName);
+        if (value) return value;
+        if (fallback) return fallback.trim();
+        return _match; // leave unresolved if no value found
+      },
+    );
+    if (resolved === before) break; // nothing changed, stop
+  }
+
+  return resolved;
+}
+
 // ── HTML Dimension / Background Parser ────────────────────────────────────────
 
 /**
  * Extract the CSS background-color from the HTML's `html` or `body` rules.
  * Falls back to a dark default so html2canvas never renders a transparent canvas.
- * Skips CSS custom property values (var(--...)) that html2canvas cannot parse.
+ * Should be called AFTER resolveCssVariables() so values are literal.
  */
 function extractCssBackgroundColor(html: string): string {
   const isSafeColor = (v: string) => !v.includes('var(') && !v.includes('gradient');
@@ -399,34 +445,36 @@ function HtmlCarouselPreview({
 
 /**
  * Capture HTML content as a PNG base64 string using html2canvas.
- * Reads dimensions from the HTML — supports both fixed-size and auto-height cards.
+ * Pre-processes CSS variables so html2canvas renders correctly.
+ * Waits for font loading. Supports both fixed-size and auto-height cards.
  */
 async function captureHtmlAsBase64(html: string): Promise<string> {
-  const { width: designW, height: designH } = parseHtmlDimensions(html);
+  // Resolve CSS custom properties BEFORE capture — html2canvas can't handle var()
+  const resolved = resolveCssVariables(html);
+  const { width: designW, height: designH } = parseHtmlDimensions(resolved);
 
   return new Promise((resolve, reject) => {
     const iframe = document.createElement('iframe');
-    // For auto-height, use a tall initial height to let content flow
     const capH = designH ?? 2000;
     iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${capH}px;border:none;`;
     iframe.sandbox.add('allow-same-origin');
-    iframe.srcdoc = html;
+    iframe.srcdoc = resolved;
 
     iframe.onload = async () => {
       try {
-        // Wait for CSS backgrounds / fonts to render fully
-        await new Promise(r => setTimeout(r, 500));
-
         const doc = iframe.contentDocument;
         if (!doc?.documentElement) throw new Error('Cannot access iframe content');
 
-        // For auto-height, use actual content height
-        const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
+        // Wait for fonts to load (with a 3s safety timeout)
+        await Promise.race([
+          doc.fonts?.ready ?? Promise.resolve(),
+          new Promise(r => setTimeout(r, 3000)),
+        ]);
+        // Extra frame for paint
+        await new Promise(r => setTimeout(r, 200));
 
-        // Extract the CSS background color so the canvas is never transparent.
-        // html2canvas may miss radial-gradient patterns — the solid color ensures
-        // the image always has the correct background rather than transparency.
-        const bgColor = extractCssBackgroundColor(html);
+        const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
+        const bgColor = extractCssBackgroundColor(resolved);
 
         const canvas = await html2canvas(doc.documentElement, {
           width: designW,
@@ -438,9 +486,7 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
           windowHeight: finalH,
         });
 
-        const dataUrl = canvas.toDataURL('image/png');
-        const base64 = dataUrl.split(',')[1];
-        resolve(base64);
+        resolve(canvas.toDataURL('image/png').split(',')[1]);
       } catch (err) {
         reject(err);
       } finally {
@@ -459,14 +505,19 @@ async function captureHtmlAsBase64(html: string): Promise<string> {
 
 /**
  * Capture multiple square pages from a single tall HTML document.
- * Each page is captured at a different Y offset, producing square PNG images.
+ * Captures each .slide element individually (instead of Y-offset slicing)
+ * so content never gets cut in half at slide boundaries.
+ *
+ * Falls back to Y-offset slicing if .slide elements aren't found.
  *
  * @param html      - The full tall HTML document
  * @param pageCount - Number of pages to capture
  * @returns Array of base64-encoded PNG strings
  */
 async function captureHtmlPages(html: string, pageCount: number): Promise<string[]> {
-  const { width: designW } = parseHtmlDimensions(html);
+  // Resolve CSS custom properties BEFORE capture
+  const resolved = resolveCssVariables(html);
+  const { width: designW } = parseHtmlDimensions(resolved);
   const pageH = designW; // Square pages
   const totalH = pageH * pageCount;
 
@@ -474,32 +525,60 @@ async function captureHtmlPages(html: string, pageCount: number): Promise<string
     const iframe = document.createElement('iframe');
     iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${totalH}px;border:none;`;
     iframe.sandbox.add('allow-same-origin');
-    iframe.srcdoc = html;
+    iframe.srcdoc = resolved;
 
     iframe.onload = async () => {
       try {
-        // Wait for CSS backgrounds / fonts to render fully
-        await new Promise(r => setTimeout(r, 500));
-
         const doc = iframe.contentDocument;
         if (!doc?.documentElement) throw new Error('Cannot access iframe content');
 
-        const bgColor = extractCssBackgroundColor(html);
+        // Wait for fonts to load (with a 3s safety timeout)
+        await Promise.race([
+          doc.fonts?.ready ?? Promise.resolve(),
+          new Promise(r => setTimeout(r, 3000)),
+        ]);
+        await new Promise(r => setTimeout(r, 200));
 
+        const bgColor = extractCssBackgroundColor(resolved);
         const results: string[] = [];
-        for (let i = 0; i < pageCount; i++) {
-          const canvas = await html2canvas(doc.documentElement, {
-            width: designW,
-            height: pageH,
-            y: i * pageH,
-            scale: 2,
-            useCORS: true,
-            backgroundColor: bgColor,
-            windowWidth: designW,
-            windowHeight: totalH,
-          });
-          const dataUrl = canvas.toDataURL('image/png');
-          results.push(dataUrl.split(',')[1]);
+
+        // Try to find individual slide elements to capture them independently.
+        // This prevents content from being cut in half at slide boundaries.
+        const slides = doc.querySelectorAll('.slide, [class*="slide"], body > div, body > section');
+        const slideElements = slides.length >= pageCount
+          ? Array.from(slides).slice(0, pageCount)
+          : null;
+
+        if (slideElements) {
+          // Capture each slide element individually
+          for (const slideEl of slideElements) {
+            const el = slideEl as HTMLElement;
+            const canvas = await html2canvas(el, {
+              width: designW,
+              height: pageH,
+              scale: 2,
+              useCORS: true,
+              backgroundColor: bgColor,
+              windowWidth: designW,
+              windowHeight: pageH,
+            });
+            results.push(canvas.toDataURL('image/png').split(',')[1]);
+          }
+        } else {
+          // Fallback: Y-offset slicing (in case DOM structure is unexpected)
+          for (let i = 0; i < pageCount; i++) {
+            const canvas = await html2canvas(doc.documentElement, {
+              width: designW,
+              height: pageH,
+              y: i * pageH,
+              scale: 2,
+              useCORS: true,
+              backgroundColor: bgColor,
+              windowWidth: designW,
+              windowHeight: totalH,
+            });
+            results.push(canvas.toDataURL('image/png').split(',')[1]);
+          }
         }
 
         resolve(results);

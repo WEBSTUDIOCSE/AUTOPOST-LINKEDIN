@@ -377,44 +377,45 @@ export default function DashboardClient() {
             const html2canvas = (await import('html2canvas')).default;
             const pc = post.pageCount ?? 1;
 
-            // Parse dimensions from HTML
-            const wMatch = post.htmlContent.match(/data-design-width=["'](\d+)["']/);
+            // Resolve CSS custom properties BEFORE capture — html2canvas can't handle var()
+            const resolveVars = (rawHtml: string): string => {
+              const vars = new Map<string, string>();
+              const rootRe = /(?::root|html|body)\s*\{([^}]+)\}/gi;
+              let bm: RegExpExecArray | null;
+              while ((bm = rootRe.exec(rawHtml)) !== null) {
+                const propRe = /(--[\w-]+)\s*:\s*([^;]+)/g;
+                let pm: RegExpExecArray | null;
+                while ((pm = propRe.exec(bm[1])) !== null) {
+                  vars.set(pm[1].trim(), pm[2].trim());
+                }
+              }
+              if (vars.size === 0) return rawHtml;
+              let out = rawHtml;
+              for (let p = 0; p < 5; p++) {
+                const prev = out;
+                out = out.replace(
+                  /var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)/g,
+                  (_m, name: string, fb?: string) => vars.get(name) ?? fb?.trim() ?? _m,
+                );
+                if (out === prev) break;
+              }
+              return out;
+            };
+
+            const resolved = resolveVars(post.htmlContent);
+
+            // Parse dimensions from HTML CSS rules
+            const wMatch = resolved.match(/(?:html|body)\s*[^}]*?width\s*:\s*(\d+)px/);
             const designW = wMatch ? parseInt(wMatch[1], 10) : 1080;
 
-            // Extract background color — skip CSS vars which html2canvas cannot resolve
-            const bgRaw = (() => {
-              const m1 = post.htmlContent!.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
+            // Extract background color from resolved HTML (no var() issues)
+            const bgColor = (() => {
+              const m1 = resolved.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
               if (m1 && !m1[1].includes('var(') && !m1[1].includes('gradient')) return m1[1].trim();
-              const m2 = post.htmlContent!.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
+              const m2 = resolved.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
               if (m2 && !m2[1].includes('var(') && !m2[1].includes('gradient')) return m2[1].trim();
               return '#0f172a';
             })();
-            const bgColor = bgRaw;
-
-            const captureOnePage = (html: string, width: number, height: number, yOffset = 0, totalHeight?: number): Promise<string> => {
-              return new Promise((resolve, reject) => {
-                const iframe = document.createElement('iframe');
-                const frameH = totalHeight ?? height;
-                iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${width}px;height:${frameH}px;border:none;`;
-                iframe.sandbox.add('allow-same-origin');
-                iframe.srcdoc = html;
-                iframe.onload = async () => {
-                  try {
-                    await new Promise(r => setTimeout(r, 500));
-                    const doc = iframe.contentDocument;
-                    if (!doc?.documentElement) throw new Error('Cannot access iframe content');
-                    const canvas = await html2canvas(doc.documentElement, {
-                      width, height, y: yOffset, scale: 2, useCORS: true,
-                      backgroundColor: bgColor, windowWidth: width, windowHeight: frameH,
-                    });
-                    resolve(canvas.toDataURL('image/png').split(',')[1]);
-                  } catch (err) { reject(err); }
-                  finally { document.body.removeChild(iframe); }
-                };
-                iframe.onerror = () => { document.body.removeChild(iframe); reject(new Error('iframe load failed')); };
-                document.body.appendChild(iframe);
-              });
-            };
 
             if (pc > 1) {
               const pageH = designW;
@@ -425,18 +426,36 @@ export default function DashboardClient() {
                 const iframe = document.createElement('iframe');
                 iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${totalH}px;border:none;`;
                 iframe.sandbox.add('allow-same-origin');
-                iframe.srcdoc = post.htmlContent!;
+                iframe.srcdoc = resolved;
                 iframe.onload = async () => {
                   try {
-                    await new Promise(r => setTimeout(r, 500));
                     const doc = iframe.contentDocument;
                     if (!doc?.documentElement) throw new Error('Cannot access iframe content');
-                    for (let i = 0; i < pc; i++) {
-                      const canvas = await html2canvas(doc.documentElement, {
-                        width: designW, height: pageH, y: i * pageH, scale: 2, useCORS: true,
-                        backgroundColor: bgColor, windowWidth: designW, windowHeight: totalH,
-                      });
-                      results.push(canvas.toDataURL('image/png').split(',')[1]);
+                    // Wait for fonts + paint
+                    await Promise.race([doc.fonts?.ready ?? Promise.resolve(), new Promise(r => setTimeout(r, 3000))]);
+                    await new Promise(r => setTimeout(r, 200));
+
+                    // Try to capture individual slide elements instead of Y-offset slicing
+                    const slides = doc.querySelectorAll('.slide, [class*="slide"], body > div, body > section');
+                    const slideEls = slides.length >= pc ? Array.from(slides).slice(0, pc) : null;
+
+                    if (slideEls) {
+                      for (const el of slideEls) {
+                        const canvas = await html2canvas(el as HTMLElement, {
+                          width: designW, height: pageH, scale: 2, useCORS: true,
+                          backgroundColor: bgColor, windowWidth: designW, windowHeight: pageH,
+                        });
+                        results.push(canvas.toDataURL('image/png').split(',')[1]);
+                      }
+                    } else {
+                      // Fallback: Y-offset slicing
+                      for (let i = 0; i < pc; i++) {
+                        const canvas = await html2canvas(doc.documentElement, {
+                          width: designW, height: pageH, y: i * pageH, scale: 2, useCORS: true,
+                          backgroundColor: bgColor, windowWidth: designW, windowHeight: totalH,
+                        });
+                        results.push(canvas.toDataURL('image/png').split(',')[1]);
+                      }
                     }
                     resolve();
                   } catch (err) { reject(err); }
@@ -447,10 +466,33 @@ export default function DashboardClient() {
               });
               imageBase64Array = results;
             } else {
-              const hMatch = post.htmlContent.match(/data-design-height=["'](\d+)["']/);
+              // Single page capture
+              const hMatch = resolved.match(/(?:html|body)\s*[^}]*?height\s*:\s*(\d+)px/);
               const designH = hMatch ? parseInt(hMatch[1], 10) : undefined;
               const capH = designH ?? 2000;
-              imageBase64 = await captureOnePage(post.htmlContent, designW, designH ?? capH);
+              imageBase64 = await new Promise<string>((resolve, reject) => {
+                const iframe = document.createElement('iframe');
+                iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${designW}px;height:${capH}px;border:none;`;
+                iframe.sandbox.add('allow-same-origin');
+                iframe.srcdoc = resolved;
+                iframe.onload = async () => {
+                  try {
+                    const doc = iframe.contentDocument;
+                    if (!doc?.documentElement) throw new Error('Cannot access iframe content');
+                    await Promise.race([doc.fonts?.ready ?? Promise.resolve(), new Promise(r => setTimeout(r, 3000))]);
+                    await new Promise(r => setTimeout(r, 200));
+                    const finalH = designH ?? (doc.documentElement.scrollHeight || capH);
+                    const canvas = await html2canvas(doc.documentElement, {
+                      width: designW, height: finalH, scale: 2, useCORS: true,
+                      backgroundColor: bgColor, windowWidth: designW, windowHeight: finalH,
+                    });
+                    resolve(canvas.toDataURL('image/png').split(',')[1]);
+                  } catch (err) { reject(err); }
+                  finally { document.body.removeChild(iframe); }
+                };
+                iframe.onerror = () => { document.body.removeChild(iframe); reject(new Error('iframe failed')); };
+                document.body.appendChild(iframe);
+              });
             }
           } catch (captureErr) {
             alert(`Failed to capture HTML card: ${captureErr instanceof Error ? captureErr.message : 'Unknown error'}`);

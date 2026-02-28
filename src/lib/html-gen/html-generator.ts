@@ -105,6 +105,7 @@ TECHNICAL RULES (strict):
 - Output a SINGLE complete HTML document (<!DOCTYPE html> through </html>).
 - All CSS in one <style> block. No external CSS, no CDN links, no <script> tags.
 - No backdrop-filter. Use box-shadow for depth instead.
+- Do NOT use CSS custom properties (var(--...)). Use literal color values directly (e.g. #0d1117, #c9d1d9).
 - CSS: ${sizeRule}
 - Each section div must enforce overflow:hidden so content NEVER spills into the next section.
 - Content MUST fit within the dimensions. If it doesn't fit, REDUCE the content.
@@ -238,6 +239,7 @@ TECHNICAL RULES (strict):
 - Output a SINGLE complete HTML document (<!DOCTYPE html> through </html>).
 - All CSS in one <style> block. Convert Tailwind/Google Fonts to plain CSS. No CDN links, no <script> tags.
 - No backdrop-filter. Use box-shadow for depth instead.
+- Do NOT use CSS custom properties (var(--...)). Use literal color values directly (e.g. #0d1117, #c9d1d9). The image capture tool cannot render CSS variables.
 - CSS: ${sizeCSS}
 - Each section div must enforce overflow:hidden so content NEVER spills into the next section.
 - Content MUST fit within the dimensions. If it doesn't fit, REDUCE the content.
@@ -310,7 +312,7 @@ function parseHtmlResponse(raw: string): string {
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const SYSTEM_INSTRUCTION = `You are an HTML generator that creates professional infographic-style HTML documents. Output ONLY a single complete HTML document from <!DOCTYPE html> to </html>. No markdown, no explanation. Content must fit within the specified dimensions — never let text overflow or get cut off.`;
+const SYSTEM_INSTRUCTION = `You are an HTML generator that creates professional infographic-style HTML documents. Output ONLY a single complete HTML document from <!DOCTYPE html> to </html>. No markdown, no explanation. Content must fit within the specified dimensions — never let text overflow or get cut off. IMPORTANT: Do NOT use CSS custom properties (var(--...)). Use literal color values directly.`;
 
 /**
  * Generate HTML with retry logic (up to 3 attempts on transient errors).

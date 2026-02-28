@@ -585,6 +585,15 @@ export async function PATCH(request: NextRequest) {
 
           await PostService.markPublished(postId, linkedinPostId);
 
+          // Notify user of successful publish
+          sendPushNotification(user.uid, {
+            type: 'post_published',
+            title: '🚀 Post Published!',
+            body: `"${post.topic}" is now live on LinkedIn.`,
+            postId,
+            clickAction: '/posts',
+          }).catch(() => {});
+
           // Advance series topic index so the next generation picks the next topic
           if (post.seriesId && post.topicIndex !== undefined) {
             const seriesResult = await SeriesService.getById(post.seriesId);
