@@ -20,6 +20,7 @@ import type { Timestamp } from 'firebase-admin/firestore';
 import { ProfileService } from '@/lib/linkedin/services/profile.service';
 import { PostService } from '@/lib/linkedin/services/post.service';
 import { SeriesService } from '@/lib/linkedin/services/series.service';
+import { sendPushNotification } from '@/lib/linkedin/services/push.service';
 import {
   createLinkedInPost,
   uploadImageToLinkedIn,
@@ -184,11 +185,29 @@ export async function POST(request: NextRequest) {
         }
 
         results.push({ postId, userId, topic, status: 'published', detail: linkedinPostId });
+
+        // Notify user that their post was published
+        sendPushNotification(userId, {
+          type: 'post_published',
+          title: '🚀 Post Published!',
+          body: `Your post "${topic}" is now live on LinkedIn.`,
+          postId,
+          clickAction: '/posts',
+        }).catch(() => {});
       } catch (postErr) {
         const msg = postErr instanceof Error ? postErr.message : String(postErr);
         console.error(`[publish-all] Failed to publish post ${postId}:`, postErr);
         await PostService.markFailed(postId, msg).catch(() => null);
         results.push({ postId, userId, topic, status: 'failed', detail: msg });
+
+        // Notify user that publish failed
+        sendPushNotification(userId, {
+          type: 'post_failed',
+          title: '❌ Post Failed',
+          body: `Failed to publish "${topic}": ${msg.slice(0, 100)}`,
+          postId,
+          clickAction: '/posts',
+        }).catch(() => {});
       }
     }
 

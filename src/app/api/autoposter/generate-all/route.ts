@@ -24,6 +24,7 @@ import { SeriesService } from '@/lib/linkedin/services/series.service';
 import { PostService } from '@/lib/linkedin/services/post.service';
 import { TemplateService } from '@/lib/linkedin/services/template.service';
 import { generatePostDraft } from '@/lib/linkedin/services/post-generator.service';
+import { sendPushNotification } from '@/lib/linkedin/services/push.service';
 import { getAdminDb } from '@/lib/firebase/admin';
 import { POSTS_COLLECTION } from '@/lib/linkedin/collections';
 import { FieldValue } from 'firebase-admin/firestore';
@@ -226,6 +227,15 @@ export async function POST(request: NextRequest) {
         });
 
         results.push({ postId, userId, status: 'generated', detail: topic });
+
+        // Notify user that a new draft is ready for review
+        sendPushNotification(userId, {
+          type: 'draft_ready',
+          title: '📝 Draft Ready for Review',
+          body: `Your post "${topic}" has been generated. Review and approve it before the deadline.`,
+          postId,
+          clickAction: '/posts',
+        }).catch(() => {});
       } catch (postErr) {
         const msg = postErr instanceof Error ? postErr.message : String(postErr);
         console.error(`[generate-all] Failed for post ${postId} (user ${userId}):`, postErr);

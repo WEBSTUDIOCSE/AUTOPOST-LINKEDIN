@@ -5,24 +5,24 @@
  * or closed.  This file MUST live at the root of /public/ so it can
  * be registered with the correct scope.
  *
- * In production, replace the firebaseConfig values below with your
- * actual config — or load them dynamically via query params at
- * registration time.
+ * Firebase config is injected via query params at registration time
+ * by the notification service.
  */
 
 /* eslint-disable no-undef */
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-// Minimal config needed for the service worker (no auth, no Firestore)
-// These values are safe to expose — they're already public in the client bundle.
+// Parse Firebase config from query params (injected at registration time)
+const params = new URLSearchParams(self.location.search);
+
 firebase.initializeApp({
-  apiKey: self.__FIREBASE_CONFIG__?.apiKey ?? '',
-  authDomain: self.__FIREBASE_CONFIG__?.authDomain ?? '',
-  projectId: self.__FIREBASE_CONFIG__?.projectId ?? '',
-  storageBucket: self.__FIREBASE_CONFIG__?.storageBucket ?? '',
-  messagingSenderId: self.__FIREBASE_CONFIG__?.messagingSenderId ?? '',
-  appId: self.__FIREBASE_CONFIG__?.appId ?? '',
+  apiKey: params.get('apiKey') || '',
+  authDomain: params.get('authDomain') || '',
+  projectId: params.get('projectId') || '',
+  storageBucket: params.get('storageBucket') || '',
+  messagingSenderId: params.get('messagingSenderId') || '',
+  appId: params.get('appId') || '',
 });
 
 const messaging = firebase.messaging();

@@ -40,16 +40,29 @@ export async function requestNotificationPermission(): Promise<string | null> {
     }
 
     const messaging = getMessaging(app);
-    const vapidKey = getCurrentFirebaseConfig().vapidKey;
+    const config = getCurrentFirebaseConfig();
+    const vapidKey = config.vapidKey;
 
     if (!vapidKey) {
       console.error('[FCM] VAPID key is not configured');
       return null;
     }
 
+    // Build query params so the SW can initialize Firebase with the right config
+    const swParams = new URLSearchParams({
+      apiKey: config.apiKey,
+      authDomain: config.authDomain,
+      projectId: config.projectId,
+      storageBucket: config.storageBucket,
+      messagingSenderId: config.messagingSenderId,
+      appId: config.appId,
+    });
+
     const token = await getToken(messaging, {
       vapidKey,
-      serviceWorkerRegistration: await navigator.serviceWorker.register('/firebase-messaging-sw.js'),
+      serviceWorkerRegistration: await navigator.serviceWorker.register(
+        `/firebase-messaging-sw.js?${swParams.toString()}`
+      ),
     });
 
     return token;

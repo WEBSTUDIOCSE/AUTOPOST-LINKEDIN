@@ -12,6 +12,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 import PwaInstallBanner from './PwaInstallBanner';
 import {
   LayoutDashboard,
@@ -191,6 +192,27 @@ function MobileTabBar({ pathname }: { pathname: string }) {
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+
+  // Listen for FCM messages while the app is in the foreground
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined;
+
+    (async () => {
+      try {
+        const { onForegroundMessage, showBrowserNotification } = await import(
+          '@/lib/linkedin/services/notification.service'
+        );
+        unsubscribe = onForegroundMessage((payload) => {
+          // Show a browser notification for the in-app user
+          showBrowserNotification(payload);
+        });
+      } catch {
+        // FCM not available (e.g. SSR, unsupported browser) — ignore
+      }
+    })();
+
+    return () => unsubscribe?.();
+  }, []);
 
   return (
     <TooltipProvider delayDuration={300}>

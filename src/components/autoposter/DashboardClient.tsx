@@ -43,6 +43,7 @@ import {
   Video,
   Code2,
   Sparkles,
+  Eye,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Post, PostStatus, Series, Idea } from '@/lib/linkedin/types';
@@ -189,6 +190,11 @@ function NextPostCard({
               {isPending && <span className="ml-2">· Review by {formatTime(post.reviewDeadline)}</span>}
             </p>
           </div>
+          <Link href="/posts" title="View in Posts">
+            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+              <Eye className="h-3.5 w-3.5" /><span className="sr-only">View post</span>
+            </Button>
+          </Link>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -375,9 +381,15 @@ export default function DashboardClient() {
             const wMatch = post.htmlContent.match(/data-design-width=["'](\d+)["']/);
             const designW = wMatch ? parseInt(wMatch[1], 10) : 1080;
 
-            // Extract background color
-            const bgMatch = post.htmlContent.match(/background(?:-color)?\s*:\s*([^;}"']+)/i);
-            const bgColor = bgMatch ? bgMatch[1].trim() : '#ffffff';
+            // Extract background color — skip CSS vars which html2canvas cannot resolve
+            const bgRaw = (() => {
+              const m1 = post.htmlContent!.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
+              if (m1 && !m1[1].includes('var(') && !m1[1].includes('gradient')) return m1[1].trim();
+              const m2 = post.htmlContent!.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
+              if (m2 && !m2[1].includes('var(') && !m2[1].includes('gradient')) return m2[1].trim();
+              return '#0f172a';
+            })();
+            const bgColor = bgRaw;
 
             const captureOnePage = (html: string, width: number, height: number, yOffset = 0, totalHeight?: number): Promise<string> => {
               return new Promise((resolve, reject) => {

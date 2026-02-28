@@ -118,14 +118,23 @@ const MEDIA_ICONS: Record<PostMediaType, React.ComponentType<{ className?: strin
 /**
  * Extract the CSS background-color from the HTML's `html` or `body` rules.
  * Falls back to a dark default so html2canvas never renders a transparent canvas.
+ * Skips CSS custom property values (var(--...)) that html2canvas cannot parse.
  */
 function extractCssBackgroundColor(html: string): string {
-  // Try background-color first
+  const isSafeColor = (v: string) => !v.includes('var(') && !v.includes('gradient');
+
+  // Try background-color first (exact solid color only)
   const bgcMatch = html.match(/(?:html|body)\s*\{[^}]*?background-color\s*:\s*([^;}]+)/i);
-  if (bgcMatch) return bgcMatch[1].trim();
-  // Try background shorthand — grab just the color portion
-  const bgMatch = html.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|[a-z]+)/i);
-  if (bgMatch) return bgMatch[1].trim();
+  if (bgcMatch) {
+    const val = bgcMatch[1].trim();
+    if (isSafeColor(val)) return val;
+  }
+  // Try background shorthand — grab just the colour token
+  const bgMatch = html.match(/(?:html|body)\s*\{[^}]*?background\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|hsl[a]?\([^)]+\)|[a-zA-Z]+)/i);
+  if (bgMatch) {
+    const val = bgMatch[1].trim();
+    if (isSafeColor(val)) return val;
+  }
   return '#0f172a'; // safe dark fallback
 }
 

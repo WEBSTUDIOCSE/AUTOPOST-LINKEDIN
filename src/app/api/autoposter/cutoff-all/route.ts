@@ -18,6 +18,7 @@ import { getAdminDb } from '@/lib/firebase/admin';
 import { POSTS_COLLECTION } from '@/lib/linkedin/collections';
 import { FieldValue } from 'firebase-admin/firestore';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { sendPushNotification } from '@/lib/linkedin/services/push.service';
 
 export const maxDuration = 60;
 
@@ -63,6 +64,15 @@ export async function POST(request: NextRequest) {
         userId: data.userId as string,
         topic: data.topic as string,
       });
+
+      // Notify user that the review deadline passed
+      sendPushNotification(data.userId as string, {
+        type: 'post_skipped',
+        title: '⏰ Review Deadline Passed',
+        body: `"${data.topic as string}" was skipped because the review deadline passed. It will be regenerated.`,
+        postId: doc.id,
+        clickAction: '/posts',
+      }).catch(() => {});
     }
 
     console.log(`[cutoff-all] Skipped ${results.length} posts`);

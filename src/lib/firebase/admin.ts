@@ -17,6 +17,7 @@ import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
 import { getAuth, type Auth } from 'firebase-admin/auth';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getStorage, type Storage } from 'firebase-admin/storage';
+import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 
 /**
  * Named app — prevents hot-reload from picking up a stale default app
@@ -28,6 +29,7 @@ const ADMIN_APP_NAME = 'linkedin-autoposter';
 let _adminAuth: Auth | null = null;
 let _adminDb: Firestore | null = null;
 let _adminStorage: Storage | null = null;
+let _adminMessaging: Messaging | null = null;
 
 function getAdminApp(): App {
   // Load service account credentials
@@ -90,4 +92,10 @@ export function getAdminStorage(): Storage {
   if (_adminStorage) return _adminStorage;
   _adminStorage = getStorage(getAdminApp());
   return _adminStorage;
+}
+
+export function getAdminMessaging(): Messaging {
+  if (_adminMessaging) return _adminMessaging;
+  _adminMessaging = getMessaging(getAdminApp());
+  return _adminMessaging;
 }

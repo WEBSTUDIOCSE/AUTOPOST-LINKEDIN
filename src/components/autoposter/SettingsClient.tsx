@@ -243,15 +243,12 @@ export default function SettingsClient() {
   const enableNotifications = async () => {
     setSaving('notifications');
     try {
-      // Request permission + get token via FCM
-      if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          // In a real implementation this would get the FCM token
-          // For now, save a placeholder to indicate notifications are enabled
-          await saveField('notifications', { fcmToken: 'enabled' });
-          setNotificationsEnabled(true);
-        }
+      // Request permission + get real FCM device token
+      const { requestNotificationPermission } = await import('@/lib/linkedin/services/notification.service');
+      const token = await requestNotificationPermission();
+      if (token) {
+        await saveField('notifications', { fcmToken: token });
+        setNotificationsEnabled(true);
       }
     } catch {
       // TODO: toast

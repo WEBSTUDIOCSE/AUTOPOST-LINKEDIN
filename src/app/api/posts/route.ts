@@ -17,6 +17,7 @@ import { IdeaService } from '@/lib/linkedin/services/idea.service';
 import { ProfileService } from '@/lib/linkedin/services/profile.service';
 import { TemplateService } from '@/lib/linkedin/services/template.service';
 import { generatePostDraft, regeneratePostDraft } from '@/lib/linkedin/services/post-generator.service';
+import { sendPushNotification } from '@/lib/linkedin/services/push.service';
 import {
   createLinkedInPost,
   uploadImageToLinkedIn,
@@ -604,6 +605,16 @@ export async function PATCH(request: NextRequest) {
         } catch (pubErr: unknown) {
           const errMessage = pubErr instanceof Error ? pubErr.message : 'Unknown publish error';
           await PostService.markFailed(postId, errMessage);
+
+          // Notify user of publish failure
+          sendPushNotification(user.uid, {
+            type: 'post_failed',
+            title: '❌ Publish Failed',
+            body: `Failed to publish "${post.topic}": ${errMessage.slice(0, 100)}`,
+            postId,
+            clickAction: '/posts',
+          }).catch(() => {});
+
           return NextResponse.json(
             { error: `Publish failed: ${errMessage}` },
             { status: 500 },
